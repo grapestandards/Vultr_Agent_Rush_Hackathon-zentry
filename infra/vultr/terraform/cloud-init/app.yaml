@@ -1,0 +1,6 @@
+#cloud-config
+# App VM: Coolify (manages all three VMs, builds from GitHub, terminates HTTPS).
+package_update: true
+packages: [ca-certificates, curl]
+runcmd:
+  - curl -fsSL https://cdn.coollabs.io/coolify/install.sh | bash

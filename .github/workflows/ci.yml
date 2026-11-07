@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - run: sudo apt-get install -y libgomp1
+      - run: uv sync --all-packages --frozen
+      - run: uv run pytest libs data services -q
+      - name: Generator is deterministic
+        run: |
+          uv run python -m zt_generator --no-db --out /tmp/g1
+          uv run python -m zt_generator --no-db --out /tmp/g2
+          cmp /tmp/g1/manifest.json /tmp/g2/manifest.json
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: apps/web/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+        env: { PUBLIC_SUPABASE_URL: "", PUBLIC_SUPABASE_ANON_KEY: "" }
+      - run: pnpm build
+        env: { PUBLIC_SUPABASE_URL: "", PUBLIC_SUPABASE_ANON_KEY: "" }
+
+  images:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -f infra/python.Dockerfile --build-arg PACKAGE=zt-api -t zentry-api .
+      - run: docker build -f infra/python.Dockerfile --build-arg PACKAGE=zt-worker -t zentry-worker .
+      - run: docker build apps/web -t zentry-web
+
+  terraform:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra/vultr/terraform
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - run: terraform fmt -check -recursive
+      - run: terraform init -backend=false -input=false
+      - run: terraform validate
+        env: { VULTR_API_KEY: "validate-only" }

@@ -1,0 +1,12 @@
+#cloud-config
+# Worker / Data VMs: Docker only. Coolify (on the App VM) deploys services here over SSH.
+package_update: true
+packages: [ca-certificates, curl, ufw]
+runcmd:
+  - curl -fsSL https://get.docker.com | sh
+  - systemctl enable --now docker
+  # host firewall as a second layer: allow SSH and anything from the VPC
+  - ufw default deny incoming
+  - ufw allow 22/tcp
+  - ufw allow from 10.20.0.0/24
+  - ufw --force enable
