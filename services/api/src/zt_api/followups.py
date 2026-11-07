@@ -155,7 +155,7 @@ def open_victim_refunds(case_id: str, actor: str) -> list[str]:
                                   amount_due_satang, due_date, source_ref, next_action_at)
                                   values (%s, 'victim_refund', %s, %s, %s, %s, current_date + 14, %s, now())
                                   on conflict (kind, source_ref) where stage <> 'closed' do nothing returning id""",
-                               (case_id, f"Refund held funds to {v['name_en']}", v["name_en"],
+                               (case_id, f"Refund held funds to {v['name']}", v["name"],
                                 f"{v['account_id'].lower()}@inbox.example", t["held_satang"],
                                 f"victim:{v['account_id']}")).fetchone()
             if row:

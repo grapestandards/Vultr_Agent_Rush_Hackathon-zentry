@@ -17,7 +17,7 @@ export type AlertRow = {
 };
 
 export const ALERT_SELECT =
-	'id, transaction_id, account_id, score, priority, reason, rule_hits, top_features_json, status, txn_ts, created_at, accounts(type, customers(name_en, name_th)), case_links(case_id)';
+	'id, transaction_id, account_id, score, priority, reason, rule_hits, top_features_json, status, txn_ts, created_at, accounts(type, customers(name_en:display_en, name_th:display_th)), case_links(case_id)';
 
 export const RULE_SHORT: Record<string, string> = {
 	pass_through: 'Pass-through',

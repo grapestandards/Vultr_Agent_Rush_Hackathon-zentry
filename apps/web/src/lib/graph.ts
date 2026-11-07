@@ -2,7 +2,8 @@ export type GraphNode = {
 	id: string;
 	type: 'wallet' | 'bank' | 'merchant';
 	status: string;
-	name_en: string;
+	name: string; // masked for people ("Somying Sd****"), full for merchants
+	name_th: string;
 	kyc_level: number;
 	risk: number | null;
 	cases: string[];
@@ -29,7 +30,7 @@ export type Network = {
 	groups: NetworkGroup[];
 };
 
-export type VictimCandidate = { account_id: string; name_en: string; paid_satang: number; payments: number; first_ts: string };
+export type VictimCandidate = { account_id: string; name: string; paid_satang: number; payments: number; first_ts: string };
 
 export type Trace = {
 	victim: string;

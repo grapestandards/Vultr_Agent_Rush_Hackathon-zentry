@@ -12,6 +12,7 @@ from zt_core.events import NatsEventBus
 from zt_core.ingest import ingest_transactions
 from zt_core.settings import env
 
+from .accounts import router as accounts_router
 from .cases import router as cases_router
 from .followups import router as followups_router
 from .graph import router as graph_router
@@ -32,6 +33,7 @@ app.include_router(graph_router)
 app.include_router(train_router)
 app.include_router(recon_router)
 app.include_router(followups_router)
+app.include_router(accounts_router)
 
 
 @app.get("/healthz")

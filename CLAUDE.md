@@ -49,6 +49,9 @@ supabase/{config.toml,migrations}  infra/{docker-compose.yml,coolify,vultr}  scr
 - Training (`services/trainer/src/zt_trainer/job.py`): runs locally (worker subprocess) unless
   `TRAIN_RUNNER=vultr` + `VULTR_API_KEY`; then the worker creates a `zentry-train` VM (paid — ask
   the user first), which gets only a short-lived job token. Watchdog deletes those VMs after 30 min.
+- PII: browsers can only select masked names (`customers.display_en/display_th`, "Somying Sd****";
+  merchants keep business names). APIs and agents return the masked columns too. Full names only via
+  `POST /pii/reveal` with a reason (analyst / compliance_manager / collections), audited as `pii:reveal`.
 - Ground-truth columns prefixed `gt_` exist for evaluation only — never use them as model features
   or show them in analyst UI.
 - Work milestone by milestone (M1→M7); run acceptance checks and stop for review after each.

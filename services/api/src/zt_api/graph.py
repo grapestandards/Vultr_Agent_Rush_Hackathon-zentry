@@ -80,11 +80,10 @@ def _nodes(conn, ids: set[str], txns: list[dict]) -> list[dict]:
         flow_out[t["from_account"]] += t["amount_satang"]
         flow_in[t["to_account"]] += t["amount_satang"]
     rows = conn.execute("""
-        select a.id, a.type, a.status, c.name_en, c.kyc_level,
+        select a.id, a.type, a.status, c.display_en as name, c.display_th as name_th, c.kyc_level,
                (select max(score) from public.alerts al where al.account_id = a.id) as risk,
                (select array_agg(distinct l.case_id::text) from public.case_links l
-                  join public.cases k on k.id = l.case_id
-                 where l.account_id = a.id and k.status <> 'closed') as cases
+                 where l.account_id = a.id) as cases
         from public.accounts a join public.customers c on c.id = a.customer_id
         where a.id = any(%s)""", (list(ids),)).fetchall()
     return [{**r, "cases": r["cases"] or [], "in_satang": flow_in[r["id"]], "out_satang": flow_out[r["id"]]}
@@ -153,7 +152,7 @@ def network(case: str | None = None, accounts: list[str] = Query(default=[]),
 def _victim_candidates(conn, seeds: list[str], start: datetime, end: datetime) -> list[dict]:
     """Senders into the network who are not alerted themselves: the likely scam victims."""
     return conn.execute("""
-        select t.from_account as account_id, c.name_en, sum(t.amount_satang)::bigint as paid_satang,
+        select t.from_account as account_id, c.display_en as name, sum(t.amount_satang)::bigint as paid_satang,
                count(*) as payments, min(t.ts) as first_ts
         from public.transactions t
         join public.accounts a on a.id = t.from_account join public.customers c on c.id = a.customer_id

@@ -47,7 +47,7 @@
 	const ref = (b: Break) => b.settlement_id ?? b.transaction_id ?? '';
 </script>
 
-<section class="mx-auto max-w-6xl pt-4">
+<section class="mx-auto flex max-w-6xl flex-col pt-4 lg:h-full">
 	<div class="flex flex-wrap items-end justify-between gap-3">
 		<div>
 			<h1 class="text-3xl font-semibold tracking-tight sm:text-4xl">Reconciliation</h1>
@@ -123,8 +123,8 @@
 			{/each}
 		</div>
 
-		<div class="mt-3 grid gap-4 lg:grid-cols-[minmax(0,6fr)_minmax(0,5fr)]">
-			<div class="max-h-[560px] overflow-auto rounded-3xl bg-white shadow-card">
+		<div class="mt-3 grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,6fr)_minmax(0,5fr)]">
+			<div class="max-h-[560px] min-h-0 overflow-auto rounded-3xl bg-white shadow-card lg:max-h-none">
 				<table class="w-full text-left text-xs">
 					<thead class="sticky top-0 bg-white text-ink-muted">
 						<tr><th class="px-4 py-3 font-medium">Break</th><th class="font-medium">Reference</th><th class="text-right font-medium">Difference</th><th class="px-4 text-right font-medium">Status</th></tr>
@@ -145,7 +145,7 @@
 			</div>
 
 			{#if sel}
-				<div class="space-y-4 rounded-3xl bg-white p-5 shadow-card">
+				<div class="min-h-0 space-y-4 overflow-y-auto rounded-3xl bg-white p-5 shadow-card">
 					<div class="flex items-center justify-between gap-2">
 						<span class="rounded-full px-2.5 py-1 text-xs {tone[sel.break_type]}">{BREAK_LABEL[sel.break_type]}</span>
 						<span class="text-[11px] text-ink-muted">{sel.match_rule ? `matched by ${RULE_LABEL[sel.match_rule]}` : 'no counterpart found'}</span>
@@ -192,7 +192,7 @@
 		</div>
 
 		{#if data.runs.length > 1}
-			<div class="mt-5 flex flex-wrap items-center gap-2 text-xs text-ink-muted">
+			<div class="mt-3 flex shrink-0 flex-wrap items-center gap-2 text-xs text-ink-muted">
 				Earlier runs:
 				{#each data.runs as r (r.id)}
 					<a href="?run={r.id}" class="rounded-full px-3 py-1 {r.id === run.id ? 'bg-ink text-white' : 'bg-white shadow-card'}">

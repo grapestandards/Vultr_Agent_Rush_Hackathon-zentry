@@ -120,7 +120,7 @@ def run_offline(tools: Tools) -> tuple[dict, list[dict], str, None]:
         seen_nodes.update({n["id"]: n for n in g["accounts"]})
         seen_edges.update({t["id"]: t for t in g["transfers"]})
     graph = {"accounts": list(seen_nodes.values()), "transfers": list(seen_edges.values())}
-    screens = {a: call("screen_name", name=h["account"]["name_en"]) for a, h in histories.items()}
+    screens = {a: call("screen_name", account_id=a) for a, h in histories.items()}
     typology = call("search_typology", query="mule layering pass-through new account shared device scam")
     call("similar_cases")
 

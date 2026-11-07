@@ -33,7 +33,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 	];
 	const alerted = [...new Set(alerts.map((a) => a.account_id))];
 	const [{ data: accounts }, { data: timeline }] = await Promise.all([
-		sb.from('accounts').select('id, type, status, opened_at, customers(name_en)').in('id', accountIds),
+		sb.from('accounts').select('id, type, status, opened_at, customers(name_en:display_en)').in('id', accountIds),
 		alerted.length
 			? sb
 					.from('transactions')

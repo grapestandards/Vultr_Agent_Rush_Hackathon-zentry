@@ -53,8 +53,11 @@ def run_recon(api, headers, conn, body=None) -> tuple[str, dict]:
     return run_id, (row[2] | {"status": row[1]}) if row else {"status": "timeout"}
 
 
-def cleanup(conn):
+def cleanup(conn, reset_recon=False):
     conn.rollback()
+    if reset_recon:  # the check owns recon state: start from no runs, decisions or recon follow-ups
+        conn.execute("delete from public.follow_ups where kind = 'recon'")
+        conn.execute("delete from public.recon_runs")
     conn.execute("""delete from public.recon_matches where settlement_id in
                     (select id from public.settlements where raw_file_key = %s)""", (f"settlements/bank/{LATE_FILE}",))
     conn.execute("delete from public.settlements where raw_file_key = %s", (f"settlements/bank/{LATE_FILE}",))
@@ -65,7 +68,7 @@ def main():
     fin, coll, analyst = token("finance_ops"), token("collections"), token("analyst")
     api = httpx.Client(base_url=API, timeout=60)
     conn = psycopg.connect(os.environ["DATABASE_URL"])
-    cleanup(conn)
+    cleanup(conn, reset_recon=True)
     manifest = json.loads((RAW / "manifest.json").read_text())
 
     check(api.post("/recon/runs", headers=analyst, json={}).status_code == 403, "analyst cannot run reconciliation")
@@ -172,6 +175,33 @@ def main():
     check(r.status_code == 200 and refunds[0] > 0 and refunds[1] > 0,
           "closing a mule case as fraud opens victim-refund follow-ups (traced held funds)",
           f"{refunds[0]} victims, ฿{refunds[1] / 100:,.0f} held")
+
+    # ---- PII masking + audited reveal
+    rest = {"apikey": os.environ["PUBLIC_SUPABASE_ANON_KEY"], **analyst}
+    r_full = httpx.get(f"{SUPABASE}/rest/v1/customers", params={"select": "name_en", "limit": 1}, headers=rest)
+    r_mask = httpx.get(f"{SUPABASE}/rest/v1/customers", params={"select": "display_en", "limit": 1}, headers=rest)
+    check(r_full.status_code in (401, 403) and r_mask.status_code == 200 and r_mask.json()[0]["display_en"].endswith("****"),
+          "browsers cannot read full names, only masked ones", f"{r_full.status_code} / {r_mask.json()[0]['display_en']}")
+    net = api.get("/graph/network", params={"case": case_id}, headers=analyst).json()
+    people = [n for n in net["nodes"] if n["type"] != "merchant"]
+    merchants = [n for n in net["nodes"] if n["type"] == "merchant"]
+    check(people and all(n["name"].endswith("****") for n in people)
+          and all(not n["name"].endswith("****") for n in merchants),
+          "graph masks people, keeps merchant names", people[0]["name"] if people else "")
+    acct = people[0]["id"]
+    ent = api.get(f"/accounts/{acct}/entity", headers=fin)
+    check(ent.status_code == 200 and ent.json()["profile"]["name"].endswith("****") and ent.json()["history"],
+          "entity page: masked profile, balance history, counterparties", f"{ent.json()['stats']['transfers']} transfers")
+    check(api.post("/pii/reveal", headers=fin, json={"account_id": acct, "reason": "curious"}).status_code == 403,
+          "finance ops cannot reveal names")
+    check(api.post("/pii/reveal", headers=analyst, json={"account_id": acct, "reason": ""}).status_code == 422,
+          "a reveal needs a reason")
+    since = conn.execute("select max(id) from public.audit_log").fetchone()[0]
+    r = api.post("/pii/reveal", headers=analyst, json={"account_id": acct, "reason": "m6 check: STR draft"})
+    logged = conn.execute("""select count(*) from public.audit_log where id > %s and action = 'pii:reveal'
+                             and object_ref = %s and after_json->>'reason' = 'm6 check: STR draft'""", (since, f"account:{acct}")).fetchone()[0]
+    check(r.status_code == 200 and not r.json()["name_en"].endswith("****") and logged == 1,
+          "analyst reveal returns the full name and is audited with the reason")
 
     with httpx.Client(base_url=WEB, headers={"Origin": WEB}) as web:
         web.post("/login", data={"email": "finance_ops@demo.zentry.local", "password": os.environ["DEMO_PASSWORD"]})

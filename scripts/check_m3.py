@@ -113,7 +113,7 @@ def decisions(conn):
     r = httpx.post(f"{API}/cases/{case_id}/decision", json={"decision": "freeze"})
     check(r.status_code == 401, "anonymous request rejected", f"HTTP {r.status_code}")
 
-    audit_before = conn.execute("select count(*) from public.audit_log where actor like 'user:%%'").fetchone()[0]
+    audit_before = conn.execute("select count(*) from public.audit_log where actor like 'user:%%' and action like 'decision:%%'").fetchone()[0]
     r = httpx.post(f"{API}/cases/{case_id}/decision", headers={"Authorization": f"Bearer {analyst}"},
                    json={"decision": "freeze", "approve_str": True, "str_text": "Approved STR text", "note": "m3 check"})
     body = r.json()
@@ -128,7 +128,7 @@ def decisions(conn):
           "case escalated, labelled fraud, STR approved", c[:3])
     a = conn.execute("""select before_json, after_json from public.audit_log where object_ref = %s
                         and action = 'decision:freeze' order by id desc limit 1""", (f"case:{case_id}",)).fetchone()
-    audit_after = conn.execute("select count(*) from public.audit_log where actor like 'user:%%'").fetchone()[0]
+    audit_after = conn.execute("select count(*) from public.audit_log where actor like 'user:%%' and action like 'decision:%%'").fetchone()[0]
     check(a and a[0] and a[1]["frozen_accounts"] and audit_after == audit_before + 1,
           "audit_log has before/after for the decision")
     p = conn.execute("""select count(*) filter (where status = 'pending'),

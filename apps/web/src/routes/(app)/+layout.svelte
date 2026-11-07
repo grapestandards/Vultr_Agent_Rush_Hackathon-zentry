@@ -30,7 +30,7 @@
 	];
 </script>
 
-<div class="flex min-h-screen gap-4 p-3 sm:p-5">
+<div class="flex h-dvh gap-4 overflow-hidden p-3 sm:p-5">
 	<nav class="hidden flex-col items-center gap-2 pt-2 sm:flex" aria-label="Main">
 		<span class="mb-4 grid size-10 place-items-center rounded-full bg-ink text-white"><ShieldCheck size={18} /></span>
 		{#each nav as item (item.href)}
@@ -53,8 +53,8 @@
 		</form>
 	</nav>
 
-	<div class="glass flex min-w-0 flex-1 flex-col rounded-3xl shadow-panel">
-		<header class="flex items-center justify-between gap-4 px-5 py-4 sm:px-8">
+	<div class="glass flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-3xl shadow-panel">
+		<header class="flex shrink-0 items-center justify-between gap-4 px-5 py-4 sm:px-8">
 			<div class="flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-medium shadow-card">
 				<ShieldCheck size={14} class="text-accent" /> Zentry · Demo e-wallet
 			</div>
@@ -65,7 +65,7 @@
 				{data.role ? ROLE_LABEL[data.role] : 'No role'}
 			</div>
 		</header>
-		<main class="flex-1 px-5 pb-8 sm:px-8">
+		<main class="min-h-0 flex-1 overflow-y-auto px-5 pb-6 sm:px-8">
 			{@render children()}
 		</main>
 	</div>

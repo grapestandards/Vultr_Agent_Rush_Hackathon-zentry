@@ -76,7 +76,7 @@ class Tools:
 
     def get_account_history(self, account_id: str, days: int = 7, limit: int = 40) -> dict:
         acct = self._read("""
-            select a.id, a.type, a.status, a.opened_at, c.name_en, c.name_th, c.kyc_level
+            select a.id, a.type, a.status, a.opened_at, c.display_en as name_en, c.display_th as name_th, c.kyc_level
             from public.accounts a join public.customers c on c.id = a.customer_id where a.id = %s""", (account_id,))
         if not acct:
             raise ToolError(f"account {account_id} not found")
@@ -123,12 +123,18 @@ class Tools:
                           for e in sorted(edges.values(), key=lambda e: e["ts"])][:120],
         }
 
-    def screen_name(self, name: str) -> dict:
+    def screen_name(self, account_id: str) -> dict:
+        """Screens the account holder's full name; the agent only ever sees the masked name (PII)."""
+        holder = self._read("""select c.name_en, c.display_en from public.accounts a
+                               join public.customers c on c.id = a.customer_id where a.id = %s""", (account_id,))
+        if not holder:
+            raise ToolError(f"account {account_id} not found")
+        name = holder[0]["name_en"]
         hits = self._read("""
             select name_en, name_th, list, reason, round(extensions.similarity(name_en, %s)::numeric, 2) as similarity
             from public.watchlist where extensions.similarity(name_en, %s) > 0.4
             order by similarity desc limit 5""", (name, name))
-        return {"query": name, "matches": hits}
+        return {"account_id": account_id, "holder": holder[0]["display_en"], "matches": hits}
 
     def search_typology(self, query: str) -> dict:
         """Local keyword search over data/typologies (Vultr Vector Store RAG replaces this when configured)."""
@@ -189,8 +195,8 @@ SCHEMAS = [
             "account_id": {"type": "string"}, "hops": {"type": "integer", "default": 2},
             "hours": {"type": "integer", "default": 72}}}}},
     {"type": "function", "function": {
-        "name": "screen_name", "description": "Fuzzy-match a person's name against the watchlist.",
-        "parameters": {"type": "object", "required": ["name"], "properties": {"name": {"type": "string"}}}}},
+        "name": "screen_name", "description": "Fuzzy-match an account holder's name against the watchlist.",
+        "parameters": {"type": "object", "required": ["account_id"], "properties": {"account_id": {"type": "string"}}}}},
     {"type": "function", "function": {
         "name": "search_typology", "description": "Search money-laundering typology notes.",
         "parameters": {"type": "object", "required": ["query"], "properties": {"query": {"type": "string"}}}}},

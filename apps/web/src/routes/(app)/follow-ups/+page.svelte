@@ -40,7 +40,7 @@
 	const LEVEL = ['', 'Friendly reminder', 'Firm reminder', 'Escalation notice'];
 </script>
 
-<section class="mx-auto max-w-7xl pt-4">
+<section class="mx-auto flex max-w-7xl flex-col pt-4 xl:h-full">
 	<div class="flex flex-wrap items-end justify-between gap-3">
 		<div>
 			<h1 class="text-3xl font-semibold tracking-tight sm:text-4xl">Payment Follow-ups</h1>
@@ -64,14 +64,14 @@
 			<p class="mt-1 text-sm text-ink-muted">Follow-ups open when Finance Ops confirms a recon break we are owed, or an analyst closes a mule case as fraud with victim money still held.</p>
 		</div>
 	{:else}
-		<div class="mt-6 grid gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+		<div class="mt-5 grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
 			<!-- kanban -->
-			<div class="grid grid-cols-2 gap-3 md:grid-cols-5">
+			<div class="grid min-h-0 grid-cols-2 gap-3 md:grid-cols-5">
 				{#each STAGES as col (col.stage)}
 					{@const cards = data.items.filter((f) => f.stage === col.stage)}
-					<div class="min-w-0 rounded-3xl bg-white/50 p-2">
+					<div class="flex min-h-0 min-w-0 flex-col rounded-3xl bg-white/50 p-2">
 						<p class="flex items-center justify-between px-2 py-1 text-xs font-medium text-ink-muted">{col.label}<span>{cards.length}</span></p>
-						<div class="mt-1 max-h-[620px] space-y-2 overflow-auto">
+						<div class="mt-1 max-h-[620px] min-h-0 flex-1 space-y-2 overflow-auto xl:max-h-none">
 							{#each cards as f (f.id)}
 								<button onclick={() => (picked = f.id)}
 									class="w-full rounded-2xl bg-white p-3 text-left shadow-card transition {sel?.id === f.id ? 'ring-2 ring-ink' : 'hover:ring-1 hover:ring-haze'}">
@@ -93,7 +93,7 @@
 
 			<!-- detail -->
 			{#if sel}
-				<div class="space-y-4 rounded-3xl bg-white p-5 shadow-card">
+				<div class="min-h-0 space-y-4 overflow-y-auto rounded-3xl bg-white p-5 shadow-card">
 					<div>
 						<span class="rounded-full px-2 py-0.5 text-[11px] {kindTone(sel)}">{KIND_LABEL[sel.kind]}</span>
 						<h2 class="mt-2 font-semibold">{sel.title}</h2>
