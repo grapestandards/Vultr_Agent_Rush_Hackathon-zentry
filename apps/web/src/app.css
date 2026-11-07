@@ -1,0 +1,33 @@
+@import 'tailwindcss';
+
+/* Zentry tokens — see "UI style guide" in docs/DESIGN.md */
+@theme {
+	--color-mist: #ecf0f8;
+	--color-haze: #9ca7de;
+	--color-ink: #05060b;
+	--color-ink-muted: #4d506e;
+	--color-accent: #6c72ac;
+	--color-alert: #ec630d;
+	--font-sans: 'Inter', 'IBM Plex Sans Thai', ui-sans-serif, system-ui, sans-serif;
+	--shadow-card: 0 8px 30px rgb(77 80 110 / 0.08);
+	--shadow-panel: 0 30px 80px rgb(77 80 110 / 0.18);
+}
+
+@layer base {
+	html,
+	body {
+		min-height: 100%;
+	}
+	body {
+		@apply font-sans text-ink antialiased;
+		background:
+			radial-gradient(1200px 600px at 85% 110%, rgb(156 167 222 / 0.9), transparent 60%),
+			radial-gradient(900px 500px at 0% 100%, rgb(156 167 222 / 0.55), transparent 60%),
+			var(--color-mist);
+		background-attachment: fixed;
+	}
+}
+
+@utility glass {
+	@apply bg-white/70 backdrop-blur-xl;
+}

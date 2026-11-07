@@ -1,0 +1,45 @@
+# Local stack. Supabase runs separately via the Supabase CLI (`make up` starts both);
+# services join its Docker network to reach Postgres and Kong by container name.
+name: zentry
+
+x-env: &supabase-env
+  DATABASE_URL: postgresql://postgres:postgres@supabase_db_zentry:5432/postgres
+  SUPABASE_URL: http://supabase_kong_zentry:8000
+  NATS_URL: nats://nats:4222
+
+services:
+  nats:
+    image: nats:2.11-alpine
+    command: ["-js", "-sd", "/data", "-m", "8222"]
+    ports: ["4222:4222", "8222:8222"]
+    volumes: [nats-data:/data]
+
+  api:
+    build: { context: .., dockerfile: infra/python.Dockerfile, args: { PACKAGE: zt-api } }
+    command: ["uvicorn", "zt_api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    env_file: ../.env
+    environment: *supabase-env
+    ports: ["8000:8000"]
+    depends_on: [nats]
+
+  worker:
+    build: { context: .., dockerfile: infra/python.Dockerfile, args: { PACKAGE: zt-worker } }
+    command: ["python", "-m", "zt_worker.main"]
+    env_file: ../.env
+    environment: *supabase-env
+    depends_on: [nats]
+
+  web:
+    build: { context: ../apps/web, args: { ORIGIN: "http://localhost:3000" } }
+    env_file: ../.env
+    environment:
+      SUPABASE_INTERNAL_URL: http://supabase_kong_zentry:8000
+    ports: ["3000:3000"]
+
+volumes:
+  nats-data:
+
+networks:
+  default:
+    name: supabase_network_zentry
+    external: true
