@@ -30,7 +30,7 @@ supabase/{config.toml,migrations}  infra/{docker-compose.yml,coolify,vultr}  scr
   txn ids are deterministic and would hit the 2h dedup window)
 - `make replay` — push all of sim_feed through ingest → outbox → NATS → scorer (~4 min)
 - `make demo-stream RATE=15` — live-speed replay for the demo
-- `make check-m1` … `check-m4` — acceptance checks (m2–m4 need `make reset && make replay` first)
+- `make check-m1` … `check-m5` — acceptance checks (m2–m5 need `make reset && make replay` first; m5 trains a challenger, ~2.5 min)
 - Local runtime is Colima (`colima start`); Supabase CLI via `npx supabase`.
 
 ## Rules (non-negotiable)
@@ -46,6 +46,9 @@ supabase/{config.toml,migrations}  infra/{docker-compose.yml,coolify,vultr}  scr
   or `offline` (deterministic planner, same tools) when no key is set.
 - Agents: read-only tools except `propose_action`. Human approval for freezes, STRs,
   outbound messages and model promotion. Log prompt + output to `audit_log`.
+- Training (`services/trainer/src/zt_trainer/job.py`): runs locally (worker subprocess) unless
+  `TRAIN_RUNNER=vultr` + `VULTR_API_KEY`; then the worker creates a `zentry-train` VM (paid — ask
+  the user first), which gets only a short-lived job token. Watchdog deletes those VMs after 30 min.
 - Ground-truth columns prefixed `gt_` exist for evaluation only — never use them as model features
   or show them in analyst UI.
 - Work milestone by milestone (M1→M7); run acceptance checks and stop for review after each.

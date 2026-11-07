@@ -25,7 +25,7 @@
 		{ href: '/graph', label: 'Graph Explorer', icon: Network, ready: true },
 		{ href: '/recon', label: 'Reconciliation', icon: ArrowRightLeft, ready: false },
 		{ href: '/follow-ups', label: 'Follow-ups', icon: Receipt, ready: false },
-		{ href: '/tuning', label: 'Model Tuning', icon: BrainCircuit, ready: false },
+		{ href: '/tuning', label: 'Model Tuning', icon: BrainCircuit, ready: true },
 		{ href: '/audit', label: 'Audit Log', icon: ScrollText, ready: false }
 	];
 </script>

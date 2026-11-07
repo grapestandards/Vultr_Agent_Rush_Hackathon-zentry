@@ -13,3 +13,5 @@ data/generated/
 supabase/.temp/
 supabase/.branches/
 .DS_Store
+models/runs/
+models/cache/

@@ -2,7 +2,7 @@
 name = "zt-worker"
 version = "0.1.0"
 requires-python = ">=3.12,<3.13"
-dependencies = ["zt-core", "nats-py>=2.9", "psycopg[binary]>=3.2", "lightgbm>=4.5", "numpy>=1.26", "openai>=1.50"]
+dependencies = ["zt-core", "zt-trainer", "nats-py>=2.9", "psycopg[binary]>=3.2", "lightgbm>=4.5", "numpy>=1.26", "openai>=1.50", "httpx>=0.27", "boto3>=1.35"]
 
 [build-system]
 requires = ["hatchling"]
@@ -12,3 +12,4 @@ build-backend = "hatchling.build"
 packages = ["src/zt_worker"]
 [tool.uv.sources]
 zt-core = { workspace = true }
+zt-trainer = { workspace = true }

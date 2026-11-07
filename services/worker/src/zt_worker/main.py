@@ -1,4 +1,4 @@
-"""Zentry worker: outbox relay, scoring consumer, investigator (select with WORKER_TASKS)."""
+"""Zentry worker: outbox relay, scoring consumer, investigator, training runner (select with WORKER_TASKS)."""
 
 import asyncio
 import logging
@@ -11,12 +11,13 @@ from zt_core.settings import env
 from .investigate_jobs import run_investigator
 from .relay import run_relay
 from .scorer import run_scorer
+from .train_jobs import run_trainer_jobs
 
 log = logging.getLogger("zt_worker")
 
 
 async def run() -> None:
-    tasks = {t.strip() for t in os.environ.get("WORKER_TASKS", "relay,scorer,investigator").split(",") if t.strip()}
+    tasks = {t.strip() for t in os.environ.get("WORKER_TASKS", "relay,scorer,investigator,trainer").split(",") if t.strip()}
     bus = await NatsEventBus.connect(env("NATS_URL"), "zt-worker", os.environ.get("NATS_CREDS"))
     database_url = env("DATABASE_URL")
     jobs = []
@@ -26,6 +27,8 @@ async def run() -> None:
         jobs.append(run_scorer(bus, database_url, Path(os.environ.get("MODEL_ROOT", "."))))
     if "investigator" in tasks:
         jobs.append(run_investigator(bus, database_url))
+    if "trainer" in tasks:
+        jobs.append(run_trainer_jobs(bus, database_url))
     log.info("worker started: %s", sorted(tasks))
     try:
         await asyncio.gather(*jobs)

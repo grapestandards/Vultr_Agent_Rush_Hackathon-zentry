@@ -22,12 +22,8 @@ from zt_core.features import FEATURES
 from zt_generator.generate import generate
 
 from .dataset import build_xy
+from .train import PARAMS
 
-PARAMS = {
-    "objective": "binary", "learning_rate": 0.05, "num_leaves": 31, "min_data_in_leaf": 50,
-    "feature_fraction": 0.9, "bagging_fraction": 0.8, "bagging_freq": 1, "scale_pos_weight": 20,
-    "verbose": -1, "seed": 7,
-}
 
 
 def precision_at_k(y: np.ndarray, p: np.ndarray, k: int = 100) -> float:
@@ -87,8 +83,9 @@ def main() -> None:
 
         with psycopg.connect(env("DATABASE_URL")) as conn:
             conn.execute("update public.model_versions set stage = 'retired' where kind = 'lgbm' and stage = 'champion'")
-            conn.execute("""insert into public.model_versions (kind, params_json, metrics_json, artifact_key, stage)
-                            values ('lgbm', %s, %s, %s, 'champion')""",
+            conn.execute("""insert into public.model_versions (kind, name, params_json, metrics_json, artifact_key,
+                                                              stage, promoted_at)
+                            values ('lgbm', 'lgbm-baseline', %s, %s, %s, 'champion', now())""",
                          (json.dumps(PARAMS), json.dumps(metrics), f"local:{args.out}"))
         print("registered as champion")
 

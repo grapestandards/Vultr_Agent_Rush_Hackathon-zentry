@@ -20,7 +20,11 @@ services:
     restart: unless-stopped
     command: ["uvicorn", "zt_api.main:app", "--host", "0.0.0.0", "--port", "8000"]
     env_file: ../.env
-    environment: *supabase-env
+    environment:
+      <<: *supabase-env
+      MODEL_ROOT: /app
+      ZENTRY_API_URL: http://api:8000
+    volumes: ["../models:/app/models"]  # local-mode training uploads land in models/runs
     ports: ["8000:8000"]
     depends_on: [nats]
 
@@ -32,6 +36,7 @@ services:
     environment:
       <<: *supabase-env
       MODEL_ROOT: /app
+      ZENTRY_API_URL: http://api:8000
     volumes: ["../models:/app/models:ro"]
     depends_on: [nats]
 

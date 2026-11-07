@@ -92,6 +92,7 @@ class NatsEventBus:
             try:
                 raw = await sub.fetch(batch, timeout=1)
             except (nats.errors.TimeoutError, asyncio.TimeoutError):  # idle: nats-py raises either
+                yield []  # lets consumers do periodic work (e.g. model reloads) while idle
                 continue
             yield [
                 Message(m.subject, json.loads(m.data), (m.headers or {}).get("Nats-Msg-Id"),
