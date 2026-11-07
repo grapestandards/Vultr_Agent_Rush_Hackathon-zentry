@@ -7,7 +7,7 @@ requires-python = ">=3.12,<3.13"
 package = false
 
 [tool.uv.workspace]
-members = ["libs/zt_core", "data/generator", "services/api", "services/worker"]
+members = ["libs/zt_core", "data/generator", "services/api", "services/worker", "services/trainer"]
 
 [dependency-groups]
 dev = ["pytest>=8", "ruff>=0.6"]

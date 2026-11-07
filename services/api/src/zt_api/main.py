@@ -1,9 +1,13 @@
-"""Zentry API. M1: health only; case, decision, train and recon routes arrive in later milestones."""
+"""Zentry API: health and transaction ingest. Case, decision, train and recon routes arrive in later milestones."""
+
+from typing import Literal
 
 import nats
 import psycopg
 from fastapi import FastAPI, Response
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StrictInt
 
+from zt_core.ingest import ingest_transactions
 from zt_core.settings import env
 
 app = FastAPI(title="Zentry API", version="0.1.0")
@@ -27,3 +31,29 @@ async def healthz(response: Response) -> dict:
     if any(v != "ok" for v in checks.values()):
         response.status_code = 503
     return checks
+
+
+class TransactionIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(min_length=1, max_length=64)
+    from_account: str
+    to_account: str
+    amount_satang: StrictInt = Field(gt=0, description="integer satang; floats are rejected")
+    channel: Literal["promptpay", "transfer", "qr"]
+    ref_no: str
+    ts: AwareDatetime
+    device_id: str | None = None
+
+
+class IngestRequest(BaseModel):
+    transactions: list[TransactionIn] = Field(min_length=1, max_length=5000)
+
+
+@app.post("/ingest/transactions")
+def ingest(req: IngestRequest) -> dict:
+    """Ledger insert + outbox event in one DB transaction. Re-sending an id is a no-op."""
+    with psycopg.connect(env("DATABASE_URL")) as conn:
+        inserted = ingest_transactions(conn, [t.model_dump() for t in req.transactions])
+    return {"received": len(req.transactions), "inserted": len(inserted),
+            "duplicates": len(req.transactions) - len(inserted)}

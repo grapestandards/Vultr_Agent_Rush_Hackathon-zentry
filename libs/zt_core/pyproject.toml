@@ -2,7 +2,7 @@
 name = "zt-core"
 version = "0.1.0"
 requires-python = ">=3.12,<3.13"
-dependencies = []
+dependencies = ["networkx>=3.3", "scipy>=1.13", "numpy>=1.26", "nats-py>=2.9", "psycopg[binary]>=3.2"]
 
 [build-system]
 requires = ["hatchling"]

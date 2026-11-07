@@ -1,27 +1,33 @@
-"""Zentry worker. M1: connects to NATS JetStream and stays up; consumers arrive in M2."""
+"""Zentry worker: outbox relay + scoring consumer (select with WORKER_TASKS=relay,scorer)."""
 
 import asyncio
 import logging
-import signal
+import os
+from pathlib import Path
 
-import nats
-
+from zt_core.events import NatsEventBus
 from zt_core.settings import env
+
+from .relay import run_relay
+from .scorer import run_scorer
 
 log = logging.getLogger("zt_worker")
 
 
 async def run() -> None:
-    nc = await nats.connect(env("NATS_URL"), name="zt-worker")
-    js = nc.jetstream()
-    info = await js.account_info()
-    log.info("connected to NATS JetStream (streams=%s)", info.streams)
-    stop = asyncio.Event()
-    loop = asyncio.get_running_loop()
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(sig, stop.set)
-    await stop.wait()
-    await nc.drain()
+    tasks = {t.strip() for t in os.environ.get("WORKER_TASKS", "relay,scorer").split(",") if t.strip()}
+    bus = await NatsEventBus.connect(env("NATS_URL"), "zt-worker", os.environ.get("NATS_CREDS"))
+    database_url = env("DATABASE_URL")
+    jobs = []
+    if "relay" in tasks:
+        jobs.append(run_relay(bus, database_url))
+    if "scorer" in tasks:
+        jobs.append(run_scorer(bus, database_url, Path(os.environ.get("MODEL_ROOT", "."))))
+    log.info("worker started: %s", sorted(tasks))
+    try:
+        await asyncio.gather(*jobs)
+    finally:
+        await bus.close()
 
 
 def main() -> None:

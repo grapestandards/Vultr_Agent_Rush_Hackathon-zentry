@@ -9,7 +9,8 @@ model tuning) for the Vultr hackathon. Full spec: `docs/DESIGN.md` — read the 
 - **API** `services/api`: FastAPI, Python 3.12, psycopg 3, pydantic v2.
 - **Worker** `services/worker`: nats-py, LightGBM, scikit-learn, NetworkX, SHAP, openai SDK → Vultr Serverless Inference.
 - **Trainer** `services/trainer`: LightGBM + Optuna, boto3 uploads via pre-signed URLs.
-- **Shared** `libs/zt_core`: EventBus, money utils, scenario DSL, features.
+- **Shared** `libs/zt_core`: EventBus (NATS impl), outbox ingest, FeatureEngine (same code for
+  training and live scoring), the 5 rules (`rules.py`, thresholds from `scenarios.dsl_json`), money.
 - **Data**: Supabase (Postgres + pgvector, Auth, Realtime) via Supabase CLI locally; NATS JetStream.
 - Python is managed with **uv** (workspace at repo root).
 
@@ -24,7 +25,12 @@ supabase/{config.toml,migrations}  infra/{docker-compose.yml,coolify,vultr}  scr
 - `make down` — stop everything
 - `make db-reset` — re-apply migrations from scratch
 - `make seed` — synthetic data + 4 demo users (idempotent: truncates first)
-- `make check-m1` — M1 acceptance checks
+- `make train-baseline` — LightGBM on a separate synthetic month (seed 7), registered as champion
+- `make reset` — reseed + delete JetStream streams + restart worker (needed before re-replaying:
+  txn ids are deterministic and would hit the 2h dedup window)
+- `make replay` — push all of sim_feed through ingest → outbox → NATS → scorer (~4 min)
+- `make demo-stream RATE=15` — live-speed replay for the demo
+- `make check-m1`, `make check-m2` — acceptance checks
 - Local runtime is Colima (`colima start`); Supabase CLI via `npx supabase`.
 
 ## Rules (non-negotiable)

@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import json
 from collections import defaultdict
+from datetime import datetime
 from pathlib import Path
 
 import psycopg
@@ -12,10 +13,10 @@ import psycopg
 from .generate import END, START, Dataset
 
 # Everything the seed owns. Truncated together so `make seed` is repeatable.
+# scenarios and model_versions are configuration (migrations / trainer), so they survive a reseed.
 TABLES = [
     "audit_log", "messages", "follow_ups", "recon_matches", "recon_runs", "case_links", "cases",
-    "alerts", "train_runs", "model_versions", "scenarios", "outbox", "settlements", "transactions",
-    "accounts", "customers",
+    "alerts", "train_runs", "outbox", "sim_feed", "settlements", "transactions", "accounts", "customers",
 ]
 
 COLUMNS = {
@@ -28,11 +29,17 @@ COLUMNS = {
 }
 
 
-def load_db(ds: Dataset, database_url: str) -> None:
+def load_db(ds: Dataset, database_url: str, live_from: datetime) -> None:
+    """Transactions before `live_from` go straight into the ledger; the rest wait in sim_feed for the
+    simulator to replay through ingest → outbox → NATS → scoring."""
+    history = [t for t in ds.transactions if t[6] < live_from]
+    feed = [t for t in ds.transactions if t[6] >= live_from]
+    tables = {"customers": ds.customers, "accounts": ds.accounts, "transactions": history,
+              "sim_feed": feed, "settlements": ds.settlements}
     with psycopg.connect(database_url) as conn, conn.cursor() as cur:
         cur.execute("truncate " + ", ".join(f"public.{t}" for t in TABLES) + " restart identity cascade")
-        for table, cols in COLUMNS.items():
-            rows = getattr(ds, table)
+        for table, rows in tables.items():
+            cols = COLUMNS["transactions" if table == "sim_feed" else table]
             with cur.copy(f"copy public.{table} ({', '.join(cols)}) from stdin") as copy:
                 for row in rows:
                     copy.write_row(row)

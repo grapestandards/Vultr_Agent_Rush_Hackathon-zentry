@@ -20,7 +20,7 @@
 	// Pages arrive milestone by milestone; links without a page yet are shown disabled.
 	const nav = [
 		{ href: '/', label: 'Command Center', icon: LayoutDashboard, ready: true },
-		{ href: '/alerts', label: 'Alert Queue', icon: BellRing, ready: false },
+		{ href: '/alerts', label: 'Alert Queue', icon: BellRing, ready: true },
 		{ href: '/cases', label: 'Cases', icon: FolderSearch, ready: false },
 		{ href: '/graph', label: 'Graph Explorer', icon: Network, ready: false },
 		{ href: '/recon', label: 'Reconciliation', icon: ArrowRightLeft, ready: false },

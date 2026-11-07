@@ -26,7 +26,10 @@ services:
     build: { context: .., dockerfile: infra/python.Dockerfile, args: { PACKAGE: zt-worker } }
     command: ["python", "-m", "zt_worker.main"]
     env_file: ../.env
-    environment: *supabase-env
+    environment:
+      <<: *supabase-env
+      MODEL_ROOT: /app
+    volumes: ["../models:/app/models:ro"]
     depends_on: [nats]
 
   web:

@@ -43,12 +43,14 @@ def db_checks(cur) -> None:
 
     c = MANIFEST["counts"]
     for table in ["customers", "accounts", "transactions", "settlements"]:
-        cur.execute(f"select count(*) from public.{table}")
+        # transactions not replayed yet still sit in sim_feed
+        cur.execute("select count(*) from (select id from public.transactions union select id from public.sim_feed) t"
+                    if table == "transactions" else f"select count(*) from public.{table}")
         n = cur.fetchone()[0]
         check(n == c[table], f"{table} count matches manifest", f"{n:,} vs {c[table]:,}")
     check(c["customers"] == 10_000, "10,000 customers")
     check(190_000 <= c["transactions"] <= 210_000, "~200,000 transactions", f"{c['transactions']:,}")
-    cur.execute("select max(ts) - min(ts) from public.transactions")
+    cur.execute("select max(ts) - min(ts) from (select ts from public.transactions union all select ts from public.sim_feed) t")
     span = cur.fetchone()[0]
     check(29 <= span.days <= 30, "transactions span 30 days", str(span))
 
@@ -60,7 +62,7 @@ def db_checks(cur) -> None:
         check(10 <= size <= 20 and layers == 3, f"ring {ring}: 10–20 accounts in 3 layers", f"{size} accts, {layers} layers")
         # money must actually flow victim → L1 → L2 → L3 inside the ring
         cur.execute("""select coalesce(f.gt_layer, 0), coalesce(t.gt_layer, 0), count(*)
-                       from public.transactions x
+                       from (select * from public.transactions union all select * from public.sim_feed) x
                        join public.accounts f on f.id = x.from_account
                        join public.accounts t on t.id = x.to_account
                        where x.gt_ring = %s group by 1, 2""", (ring,))
@@ -68,7 +70,8 @@ def db_checks(cur) -> None:
         check({(0, 1), (1, 2), (2, 3), (3, 0)} <= hops, f"ring {ring}: victim→L1→L2→L3→cash-out flow",
               str(sorted(hops)))
 
-    cur.execute("select count(*) from public.transactions where gt_is_fraud")
+    cur.execute("select count(*) from (select id from public.transactions where gt_is_fraud"
+                " union select id from public.sim_feed where gt_is_fraud) t")
     check(cur.fetchone()[0] == c["fraud_transactions"], "fraud labels match manifest")
 
     expected = Counter(b["type"] for b in MANIFEST["breaks"])
@@ -77,7 +80,8 @@ def db_checks(cur) -> None:
     for kind, n in expected.items():
         if kind == "missing_in_bank":  # no settlement row by definition: the ledger txn must exist, unsettled
             refs = [b["ref_no"] for b in MANIFEST["breaks"] if b["type"] == kind]
-            cur.execute("""select count(*) from public.transactions t where t.ref_no = any(%s)
+            cur.execute("""select count(*) from (select ref_no from public.transactions union all
+                           select ref_no from public.sim_feed) t where t.ref_no = any(%s)
                            and not exists (select 1 from public.settlements s where s.ref_no = t.ref_no)""", (refs,))
             got = cur.fetchone()[0]
         else:
@@ -110,7 +114,7 @@ def auth_checks() -> None:
         tokens = {role: login(http, role) for role in ROLES}
         a, f, col = tokens["analyst"], tokens["finance_ops"], tokens["collections"]
         if a:
-            check(isinstance(n := count(http, a, "transactions"), int) and n > 0, "RLS: analyst reads transactions", str(n))
+            check(isinstance(n := count(http, a, "accounts"), int) and n > 0, "RLS: analyst reads accounts", str(n))
             check(count(http, a, "settlements") == 0, "RLS: analyst cannot read settlements")
             check(isinstance(count(http, a, "accounts", "id,gt_role"), str), "RLS: ground-truth columns hidden")
         if f:
