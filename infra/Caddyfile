@@ -1,0 +1,13 @@
+{$APP_HOST} {
+	encode gzip
+	reverse_proxy web:3000
+}
+
+# Supabase gateway for the browser: auth, PostgREST and Realtime only (no Studio, no pg-meta).
+{$SB_HOST} {
+	@public path /auth/v1/* /rest/v1/* /realtime/v1/*
+	handle @public {
+		reverse_proxy supabase_kong_zentry:8000
+	}
+	respond 404
+}

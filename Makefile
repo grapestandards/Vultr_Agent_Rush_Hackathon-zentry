@@ -1,5 +1,7 @@
 SHELL := /bin/bash
-COMPOSE := $(shell docker compose version >/dev/null 2>&1 && echo "docker compose" || echo docker-compose) -f infra/docker-compose.yml
+# On the Vultr VM: COMPOSE_FILES="-f infra/docker-compose.yml -f infra/docker-compose.prod.yml --env-file .env"
+COMPOSE_FILES ?= -f infra/docker-compose.yml
+COMPOSE := $(shell docker compose version >/dev/null 2>&1 && echo "docker compose" || echo docker-compose) $(COMPOSE_FILES)
 RUN := set -a && source .env && set +a && uv run
 
 .PHONY: up down env db-reset seed check-m1 check-m2 check-m3 check-m4 check-m5 check-m6 train-baseline reset replay demo-stream test logs web-dev

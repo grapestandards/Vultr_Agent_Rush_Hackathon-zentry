@@ -2,7 +2,7 @@ import { redirect } from '@sveltejs/kit';
 import type { Handle } from '@sveltejs/kit/hooks';
 import { createSupabase } from '#lib/server/supabase.ts';
 
-const PUBLIC_PATHS = ['/login'];
+const PUBLIC_PATHS = ['/login', '/welcome'];
 
 export const handle: Handle = async ({ event, resolve }) => {
 	event.locals.supabase = createSupabase(event.cookies);
@@ -21,7 +21,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	if (!PUBLIC_PATHS.includes(event.url.pathname)) {
 		const { user } = await event.locals.safeGetSession();
-		if (!user) redirect(303, '/login');
+		if (!user) redirect(303, event.url.pathname === '/' ? '/welcome' : '/login');
 	}
 
 	return resolve(event, {

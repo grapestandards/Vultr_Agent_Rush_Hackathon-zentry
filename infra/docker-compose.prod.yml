@@ -1,0 +1,30 @@
+# Single-VM production overlay (Vultr): Caddy terminates HTTPS for the web app and the Supabase
+# gateway; nothing else is published. Use with: docker compose -f docker-compose.yml -f docker-compose.prod.yml
+services:
+  nats:
+    ports: !override ["127.0.0.1:4222:4222", "127.0.0.1:8222:8222"]
+
+  api:
+    ports: !override ["127.0.0.1:8000:8000"]
+
+  web:
+    ports: !override []
+    environment:
+      ORIGIN: https://${APP_HOST}
+      PUBLIC_SUPABASE_URL: https://${SB_HOST}
+      BODY_SIZE_LIMIT: 10M
+
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      APP_HOST: ${APP_HOST}
+      SB_HOST: ${SB_HOST}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    depends_on: [web]
+
+volumes:
+  caddy-data:
