@@ -30,7 +30,7 @@ from zt_core.features import FEATURES, AccountMeta, Txn
 from zt_generator.generate import generate
 
 from .dataset import build_xy, label_rows, run_engine
-from .train import PARAMS, TUNABLE, caught_accounts, evaluate, fit, predict, search
+from .train import PARAMS, TUNABLE, caught_accounts, evaluate, fit, predict, search, tail_mask
 
 HISTORY_SEED = 7    # last month's confirmed outcomes (same month the baseline learnt from)
 HOLDOUT_SEED = 11   # an unseen month; champion and challenger are compared on exactly these rows
@@ -69,16 +69,20 @@ class Job:
         X, y, _ = build_xy(generate(seed=HISTORY_SEED))
         self.log(f"  {len(y):,} rows, {int(y.sum()):,} fraud")
 
+        sizes = [len(y)]
         if params.get("use_analyst_labels", True):
             Xl, yl = self.live_month()
             X, y = np.vstack([X, Xl]), np.concatenate([y, yl])
+            sizes.append(len(yl))
+        valid = tail_mask(sizes)  # last 20% of each month, so validation always holds fraud rows
+        self.log(f"  validation: {int(valid.sum()):,} rows, {int(y[valid].sum()):,} fraud")
 
         if params.get("trials"):
             self.log(f"optuna: {params['trials']} trials on the validation split")
-            lgb_params = search(X, y, lgb_params, features, int(params["trials"]), self.log)
+            lgb_params = search(X, y, lgb_params, features, int(params["trials"]), self.log, valid=valid)
 
         self.log("training challenger…")
-        booster = fit(X, y, lgb_params, features, rounds=int(params.get("rounds", 400)))
+        booster = fit(X, y, lgb_params, features, rounds=int(params.get("rounds", 400)), valid=valid)
         self.log(f"  best iteration {booster.best_iteration}")
 
         self.log(f"holdout month (seed {HOLDOUT_SEED}): generating + streaming features…")

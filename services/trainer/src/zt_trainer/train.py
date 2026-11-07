@@ -24,22 +24,35 @@ def columns(features: list[str]) -> list[int]:
     return [FEATURES.index(f) for f in features]
 
 
-def fit(X: np.ndarray, y: np.ndarray, params: dict, features: list[str], rounds: int = 400) -> lgb.Booster:
-    """Time-ordered split: the last 20% of rows choose the number of rounds (early stopping)."""
-    cut = int(len(y) * 0.8)
+def tail_mask(sizes: list[int], frac: float = 0.2) -> np.ndarray:
+    """Validation rows for stacked, individually time-ordered blocks: the last `frac` of each block.
+    Taking the tail of the whole stack instead would validate only on the last block, e.g. a live
+    month with no analyst-labelled fraud yet."""
+    mask = np.zeros(sum(sizes), dtype=bool)
+    start = 0
+    for n in sizes:
+        mask[start + int(n * (1 - frac)):start + n] = True
+        start += n
+    return mask
+
+
+def fit(X: np.ndarray, y: np.ndarray, params: dict, features: list[str], rounds: int = 400,
+        valid: np.ndarray | None = None) -> lgb.Booster:
+    """Rows in `valid` (default: the last 20%) choose the number of rounds (early stopping)."""
+    valid = tail_mask([len(y)]) if valid is None else valid
     cols = columns(features)
-    train = lgb.Dataset(X[:cut, cols], y[:cut], feature_name=features)
-    valid = lgb.Dataset(X[cut:, cols], y[cut:], reference=train)
-    return lgb.train(params, train, rounds, valid_sets=[valid], callbacks=[lgb.early_stopping(30, verbose=False)])
+    train = lgb.Dataset(X[~valid][:, cols], y[~valid], feature_name=features)
+    vset = lgb.Dataset(X[valid][:, cols], y[valid], reference=train)
+    return lgb.train(params, train, rounds, valid_sets=[vset], callbacks=[lgb.early_stopping(30, verbose=False)])
 
 
 def search(X: np.ndarray, y: np.ndarray, base: dict, features: list[str], trials: int,
-           log: Callable[[str], None]) -> dict:
+           log: Callable[[str], None], valid: np.ndarray | None = None) -> dict:
     """Optuna over the tunable params, scored by validation PR-AUC."""
     import optuna
 
     optuna.logging.set_verbosity(optuna.logging.WARNING)
-    cut = int(len(y) * 0.8)
+    valid = tail_mask([len(y)]) if valid is None else valid
     cols = columns(features)
 
     def objective(trial: optuna.Trial) -> float:
@@ -50,8 +63,8 @@ def search(X: np.ndarray, y: np.ndarray, base: dict, features: list[str], trials
             "feature_fraction": trial.suggest_float("feature_fraction", 0.6, 1.0),
             "scale_pos_weight": trial.suggest_float("scale_pos_weight", 1, 50, log=True),
         }
-        b = fit(X, y, params, features, rounds=300)
-        score = float(average_precision_score(y[cut:], b.predict(X[cut:, cols], num_iteration=b.best_iteration)))
+        b = fit(X, y, params, features, rounds=300, valid=valid)
+        score = float(average_precision_score(y[valid], b.predict(X[valid][:, cols], num_iteration=b.best_iteration)))
         log(f"  trial {trial.number + 1}/{trials}: PR-AUC {score:.4f} "
             f"(lr={params['learning_rate']:.3f}, leaves={params['num_leaves']}, spw={params['scale_pos_weight']:.1f})")
         return score

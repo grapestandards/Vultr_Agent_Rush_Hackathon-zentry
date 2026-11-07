@@ -77,7 +77,7 @@ def main():
                             (run_id,), 60)
     mid = conn.execute("select length(log_tail) from public.train_runs where id = %s", (run_id,)).fetchone()[0] or 0
     done = wait_for(conn, """select status in ('succeeded', 'failed'), status, model_version_id, log_tail, error
-                             from public.train_runs where id = %s""", (run_id,), 420)
+                             from public.train_runs where id = %s""", (run_id,), 900)  # ~10 min on a 4-vCPU VM
     status = done[1] if done else "timeout"
     check(seen_running and status == "succeeded", "run finishes", f"{status} in {time.time() - t0:.0f}s"
           + (f" — {done[4][-200:]}" if done and done[4] else ""))
