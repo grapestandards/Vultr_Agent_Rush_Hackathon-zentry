@@ -63,68 +63,72 @@ def main() -> None:
     tmp = OUT / "_raw"
     with sync_playwright() as p:
         browser = p.chromium.launch()
+        # sign in off camera; the recording starts on the Command Center
+        login = browser.new_context(viewport=SIZE)
+        lp = login.new_page()
+        lp.goto(f"{BASE}/login")
+        lp.fill("input[name=email]", "compliance_manager@demo.zentry.local")
+        lp.fill("input[name=password]", os.environ["DEMO_PASSWORD"])
+        lp.click("form button[type=submit], form button:not([type=button])")
+        lp.wait_for_url(f"{BASE}/")
+        state = login.storage_state()
+        login.close()
+
         ctx = browser.new_context(viewport=SIZE, record_video_dir=str(tmp), record_video_size=SIZE,
-                                  device_scale_factor=1)
+                                  device_scale_factor=1, storage_state=state)
         page = ctx.new_page()
 
-        page.goto(f"{BASE}/login")
-        caption(page, "Zentry — financial-crime & payment-ops desk for Thai e-wallets", 2.5)
-        page.fill("input[name=email]", "compliance_manager@demo.zentry.local")
-        page.fill("input[name=password]", os.environ["DEMO_PASSWORD"])
-        page.click("form button[type=submit], form button:not([type=button])")
-        page.wait_for_url(f"{BASE}/")
+        page.goto(f"{BASE}/")
         page.wait_for_load_state("networkidle")
-        caption(page, "Command Center: live transfers scored by LightGBM + 5 explainable rules", 5)
+        caption(page, "Zentry: one AI desk for financial crime and payment ops", 3)
+        caption(page, "Every transfer is scored by our AI the moment it happens", 3.5)
 
         page.goto(f"{BASE}/alerts")
         page.wait_for_load_state("networkidle")
-        caption(page, "Alert queue — every score comes with its reasons", 4)
+        caption(page, "Alert queue: every flag comes with its reasons", 4)
 
         page.goto(f"{BASE}/cases/{case_id}")
         page.wait_for_load_state("networkidle")
-        caption(page, "A whole mule ring lands in one case, investigated by an agent on Vultr Serverless Inference", 4)
+        caption(page, "A whole mule ring lands in one case, investigated by an AI agent", 4)
         glide(page, "main", 900)
-        caption(page, "Every claim cites real transaction ids — a validator rejects anything it can't verify", 4)
+        caption(page, "Every claim cites a real transaction, checked before anyone sees it", 4)
         glide(page, "main", 900)
         page.wait_for_timeout(1500)
 
         page.goto(f"{BASE}/graph?account={account}")
         page.wait_for_timeout(4500)
-        caption(page, "Graph explorer: follow the money in and out of the ring", 5)
+        caption(page, "Follow the money in and out of the ring", 5)
 
         page.goto(f"{BASE}/accounts/{account}")
         page.wait_for_load_state("networkidle")
-        caption(page, "Entity page — names are masked (PII); revealing one needs a reason and is audited", 5)
+        caption(page, "Names stay masked; revealing one needs a reason and is recorded", 5)
 
         page.goto(f"{BASE}/recon")
         page.wait_for_load_state("networkidle")
-        caption(page, "Reconciliation: ledger vs bank & gateway settlement files", 2)
+        caption(page, "Reconciliation: the ledger against bank and gateway files", 2)
         rows = page.locator("main table tbody tr")
         if not rows.count():
             page.get_by_role("button", name="Run reconciliation").click()
-            caption(page, "Three matching passes over 200k transactions…")
+            caption(page, "Matching every transfer…")
             rows.first.wait_for(timeout=60_000)
             page.wait_for_timeout(1000)
-        caption(page, "60/60 seeded breaks found, 0 false — each one typed and explained", 3)
+        caption(page, "Every mismatch found and sorted by type", 3)
         if rows.count():
             rows.first.click()
             page.wait_for_timeout(800)
-        caption(page, "The agent explains each break and drafts a balanced journal entry for approval", 5)
+        caption(page, "AI explains each one and drafts the journal entry for finance to approve", 5)
 
         page.goto(f"{BASE}/follow-ups")
         page.wait_for_load_state("networkidle")
-        caption(page, "Follow-ups: Thai/English reminders drafted by the agent — nothing is sent without approval", 5)
-
-        page.goto(f"{BASE}/tuning")
-        page.wait_for_load_state("networkidle")
-        caption(page, "Model tuning: challengers retrain on analyst decisions; humans promote", 4)
-        caption(page, "Zentry · built on Vultr · synthetic data only", 2.5)
+        caption(page, "Payment reminders in Thai and English, drafted by AI and sent only after approval", 5)
+        caption(page, "Zentry · built on Vultr · synthetic data only", 3)
 
         video = page.video
         ctx.close()
         browser.close()
         raw = Path(video.path())
-    subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", raw, "-c:v", "libx264", "-preset", "slow", "-crf", "24",
+    # -ss 1 drops the blank frames before the first page paints
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", "1", "-i", raw, "-c:v", "libx264", "-preset", "slow", "-crf", "24",
                     "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-an", OUT / "zentry-demo.mp4"], check=True)
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", "12", "-i", raw, "-frames:v", "1", "-q:v", "3",
                     "-pix_fmt", "yuvj420p", OUT / "poster.jpg"], check=True)

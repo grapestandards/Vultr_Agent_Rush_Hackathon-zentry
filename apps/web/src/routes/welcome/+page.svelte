@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import {
 		ArrowRight,
 		ArrowRightLeft,
@@ -10,57 +11,119 @@
 		FileCheck2,
 		Lock,
 		Mail,
-		Network,
 		Play,
 		Radio,
 		ShieldCheck,
 		Sparkles,
 		UserCheck
 	} from '@lucide/svelte';
-
-	const stack = ['Vultr Cloud Compute', 'Vultr Serverless Inference', 'NATS JetStream', 'Supabase · Postgres', 'LightGBM + SHAP', 'SvelteKit'];
-
-	const stats = [
-		{ value: '199,736', label: 'transfers scored in one replay' },
-		{ value: '5 / 5', label: 'mule rings grouped into cases' },
-		{ value: '60 / 60', label: 'reconciliation breaks found, 0 false' },
-		{ value: '100%', label: 'agent claims backed by real txn ids' }
-	];
+	import { LOGOS } from '#lib/landing/logos.ts';
 
 	const steps = [
-		{ n: '01', title: 'Stream', icon: Radio, body: 'Every e-wallet transfer lands in an outbox and streams through NATS JetStream, exactly once.' },
-		{ n: '02', title: 'Score', icon: BellRing, body: 'LightGBM plus five explainable rules score each transfer in milliseconds; graph analysis groups alerts into cases.' },
-		{ n: '03', title: 'Investigate', icon: BrainCircuit, body: 'An agent on Vultr Serverless Inference walks the money with read-only tools and writes a cited report.' },
-		{ n: '04', title: 'Decide', icon: UserCheck, body: 'Analysts freeze, file STRs, confirm journal entries and approve messages. Every decision is audited.' }
+		{ n: '01', title: 'Stream', icon: Radio, body: 'Every e-wallet transfer flows in the moment it happens. Nothing is batched overnight.' },
+		{ n: '02', title: 'Score', icon: BellRing, body: 'Our AI model and five plain-language rules flag risky transfers in milliseconds.' },
+		{ n: '03', title: 'Investigate', icon: BrainCircuit, body: 'An AI agent follows the money and writes a report that cites every transaction.' },
+		{ n: '04', title: 'Decide', icon: UserCheck, body: 'People freeze, report, confirm and approve. Every decision is recorded.' }
 	];
 
 	const rules = [
-		{ name: 'pass_through', hit: true },
-		{ name: 'fan_in_out', hit: true },
-		{ name: 'new_account_strangers', hit: true },
-		{ name: 'structuring', hit: false },
-		{ name: 'dormant_reactivation', hit: false }
+		{ name: 'Money passes straight through', hit: true },
+		{ name: 'Many senders, one collector', hit: true },
+		{ name: 'Brand-new account, strangers paying in', hit: true },
+		{ name: 'Amounts split to stay under limits', hit: false },
+		{ name: 'Dormant account wakes up', hit: false }
 	];
 
 	const breaks = [
 		{ label: 'Fee', n: 10 },
 		{ label: 'Timing', n: 10 },
 		{ label: 'Duplicate', n: 10 },
-		{ label: 'Amount mismatch', n: 10 },
+		{ label: 'Wrong amount', n: 10 },
 		{ label: 'Missing in bank', n: 10 },
 		{ label: 'Missing in ledger', n: 10 }
 	];
 
-	const guardrails = [
-		'Read tools run in READ ONLY transactions; propose_action is the only writer',
-		'A validator rejects reports citing ids that do not exist or were not returned by a tool',
-		'Freezes, STRs, outbound messages and model promotion wait for a human',
-		'Every prompt, output and decision is written to the audit log',
-		'Full names only via an audited reveal with a stated reason',
-		'Money is integer satang end to end. No floats, ever'
+	const evidence = [
+		'Account history reviewed',
+		'Money traced three hops out',
+		'Shared phone found across 6 accounts',
+		'142 transactions cited · 142 verified'
 	];
 
-	// tiny static graph for the capability card
+	const guardrails = [
+		'AI agents can look, not touch. They only propose actions',
+		'Reports citing a transaction that does not exist never reach an analyst',
+		'Freezes, regulator reports, outbound messages and model updates wait for a person',
+		'Every AI prompt, answer and human decision is kept in the audit log',
+		'Full names stay hidden unless someone states a reason, and that is recorded',
+		'Money is counted to the last satang, never rounded'
+	];
+
+	// hero: a synthetic live feed
+	const people = ['Somying Sd****', 'Anucha Ka****', 'Wilai Sr****', 'Jiraporn In****', 'Thanapol Ja****', 'Ekachai Bo****', 'Prasert Me****', 'Napat Ch****'];
+	type Tx = { id: number; from: string; to: string; amount: string; score: number };
+	let seq = 0;
+	function nextTx(): Tx {
+		const score = Math.random() < 0.35 ? 90 + Math.floor(Math.random() * 10) : 5 + Math.floor(Math.random() * 40);
+		const baht = score > 89 ? 8_000 + Math.random() * 60_000 : 50 + Math.random() * 3_000;
+		const from = Math.floor(Math.random() * people.length);
+		const to = (from + 1 + Math.floor(Math.random() * (people.length - 1))) % people.length; // never the sender
+		return {
+			id: seq++,
+			from: people[from],
+			to: people[to],
+			amount: '฿' + baht.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+			score
+		};
+	}
+	let feed = $state<Tx[]>([nextTx(), nextTx(), nextTx(), nextTx()]);
+
+	// hero: the agent report types itself out
+	const REPORT =
+		'A0004094 sent ฿28,774.05 to A0006872 (TX00120342) and ฿297,836.88 to A0011519 (TX00120956) from the same phone. Within two hours the money was spread across 18 wallets and spent at gold and phone shops.';
+	let typed = $state(0);
+
+	let video: HTMLVideoElement | undefined = $state();
+
+	onMount(() => {
+		if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+			typed = REPORT.length;
+			return;
+		}
+		const feedTimer = setInterval(() => (feed = [nextTx(), ...feed].slice(0, 4)), 1600);
+		const typeTimer = setInterval(() => {
+			typed = typed >= REPORT.length + 60 ? 0 : typed + 2; // pause at the end, then start over
+		}, 45);
+		// play the tour only while it is on screen
+		const io = new IntersectionObserver(([e]) => (e.isIntersecting ? video?.play().catch(() => {}) : video?.pause()), {
+			threshold: 0.4
+		});
+		if (video) io.observe(video);
+		return () => {
+			clearInterval(feedTimer);
+			clearInterval(typeTimer);
+			io.disconnect();
+		};
+	});
+
+	/** Fade-and-rise when the element scrolls into view. */
+	function reveal(node: HTMLElement, delay = 0) {
+		node.style.setProperty('--d', `${delay}ms`);
+		node.classList.add('reveal');
+		const io = new IntersectionObserver(
+			([e]) => {
+				if (e.isIntersecting) {
+					node.classList.add('in');
+					io.disconnect();
+				}
+			},
+			{ threshold: 0.15 }
+		);
+		io.observe(node);
+		return { destroy: () => io.disconnect() };
+	}
+
+	// small static graph for the capability card
 	const ring = [
 		{ x: 150, y: 90, r: 14, c: '#EC630D' },
 		{ x: 70, y: 40, r: 7, c: '#6C72AC' },
@@ -85,11 +148,18 @@
 	<title>Zentry: follow the money, close the books</title>
 	<meta
 		name="description"
-		content="Zentry is an agentic financial-crime and payment-ops desk for Thai e-wallets: real-time mule detection, cited AI investigations, reconciliation and payment follow-ups on Vultr."
+		content="Zentry is an AI desk for Thai e-wallets: catch money-mule rings in real time, investigate with cited evidence, reconcile settlements and chase payments, with people approving every action."
 	/>
 </svelte:head>
 
-<div class="min-h-dvh overflow-x-clip">
+<div class="relative min-h-dvh overflow-x-clip">
+	<!-- drifting background glow -->
+	<div class="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[900px]" aria-hidden="true">
+		<div class="blob top-[-120px] left-[-80px] size-[460px] bg-haze/60"></div>
+		<div class="blob blob-2 top-[120px] right-[-120px] size-[520px] bg-accent/30"></div>
+		<div class="blob blob-3 top-[520px] left-[30%] size-[380px] bg-alert/10"></div>
+	</div>
+
 	<!-- nav -->
 	<header class="sticky top-0 z-30 border-b border-white/60 bg-mist/70 backdrop-blur-xl">
 		<nav class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
@@ -103,107 +173,101 @@
 				<a href="#demo" class="hover:text-ink">Demo</a>
 				<a href="#guardrails" class="hover:text-ink">Guardrails</a>
 			</div>
-			<a href="/login" class="flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-sm font-medium text-white">
+			<a href="/login" class="flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-sm font-medium text-white transition hover:scale-[1.03]">
 				Open the desk <ArrowRight size={14} />
 			</a>
 		</nav>
 	</header>
 
 	<!-- hero -->
-	<section class="mx-auto grid max-w-6xl items-center gap-10 px-4 pt-14 pb-10 sm:px-6 lg:grid-cols-[1.05fr_1fr] lg:pt-20">
-		<div>
-			<p class="text-xs font-semibold tracking-[0.18em] text-accent">FINANCIAL CRIME · PAYMENT OPS</p>
-			<h1 class="mt-4 text-4xl leading-[1.05] font-semibold tracking-tight sm:text-6xl">
-				Follow the money.<br /><span class="text-ink-muted">Close the books.</span>
+	<section class="mx-auto grid max-w-6xl items-center gap-12 px-4 pt-14 pb-12 sm:px-6 lg:grid-cols-[1.05fr_1fr] lg:pt-20">
+		<div use:reveal>
+			<p class="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1 text-xs font-semibold tracking-[0.14em] text-accent shadow-card">
+				<span class="live-dot"></span> FINANCIAL CRIME · PAYMENT OPS
+			</p>
+			<h1 class="mt-5 text-4xl leading-[1.05] font-semibold tracking-tight sm:text-6xl">
+				Follow the money.<br /><span class="shine">Close the books.</span>
 			</h1>
 			<p class="mt-5 max-w-xl text-lg text-ink-muted">
-				One desk for Thai e-wallets: catch money-mule rings in real time, let an agent investigate with cited evidence,
-				reconcile bank and gateway files, and chase payments. Humans approve every action.
+				One AI desk for Thai e-wallets. Catch money-mule rings as they form, get investigations with evidence you can check,
+				reconcile settlements and chase payments. People stay in charge of every action.
 			</p>
-			<div class="mt-7 flex flex-wrap items-center gap-3">
-				<a href="/login" class="flex items-center gap-2 rounded-full bg-ink px-5 py-3 text-sm font-medium text-white shadow-panel">
-					Try the live demo <ArrowRight size={16} />
+			<div class="mt-8 flex flex-wrap items-center gap-3">
+				<a href="/login" class="group flex items-center gap-2 rounded-full bg-ink px-5 py-3 text-sm font-medium text-white shadow-panel transition hover:scale-[1.03]">
+					Try the live demo <ArrowRight size={16} class="transition group-hover:translate-x-0.5" />
 				</a>
-				<a href="#demo" class="flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-medium shadow-card">
-					<Play size={15} class="text-accent" /> Watch the tour (1:09)
+				<a href="#demo" class="flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-medium shadow-card transition hover:scale-[1.03]">
+					<Play size={15} class="text-accent" /> Watch the tour
 				</a>
 			</div>
 			<p class="mt-5 text-xs text-ink-muted">Synthetic data only. Not connected to any real bank or regulator.</p>
 		</div>
 
-		<!-- hero card: a case, didit-style subject card -->
-		<div class="relative">
-			<div class="absolute -inset-6 -z-10 rounded-[2.5rem] bg-haze/40 blur-2xl"></div>
-			<div class="glass rounded-3xl p-5 shadow-panel">
+		<!-- hero visual: live feed + agent report -->
+		<div class="relative" use:reveal={150}>
+			<div class="glass rounded-3xl p-4 shadow-panel sm:p-5">
 				<div class="flex items-center justify-between">
-					<div class="flex items-center gap-3">
-						<span class="grid size-10 place-items-center rounded-full bg-alert text-white"><Network size={18} /></span>
-						<div>
-							<p class="text-xs text-ink-muted">CASE · mule ring</p>
-							<p class="font-semibold">Layered network around A0004094</p>
-						</div>
-					</div>
-					<span class="shrink-0 rounded-full bg-alert/10 px-2.5 py-1 text-xs font-semibold whitespace-nowrap text-alert">risk 97</span>
+					<p class="flex items-center gap-2 text-sm font-semibold"><span class="live-dot"></span> Live transfers</p>
+					<span class="text-xs text-ink-muted">scored by our AI</span>
 				</div>
-				<div class="mt-4 grid grid-cols-3 gap-2">
-					{#each [{ k: 'Accounts', v: '18' }, { k: 'Transfers', v: '85' }, { k: 'Held', v: '฿578,975' }] as s (s.k)}
-						<div class="rounded-2xl bg-white p-3 shadow-card">
-							<p class="text-[11px] text-ink-muted">{s.k}</p>
-							<p class="text-lg font-semibold">{s.v}</p>
-						</div>
+				<ul class="mt-3 space-y-2">
+					{#each feed as tx (tx.id)}
+						<li class="feed-row flex items-center justify-between gap-3 rounded-2xl bg-white px-3 py-2.5 shadow-card">
+							<div class="min-w-0">
+								<p class="truncate text-sm font-medium">{tx.from} <span class="text-ink-muted">→</span> {tx.to}</p>
+								<p class="text-xs text-ink-muted">{tx.amount}</p>
+							</div>
+							{#if tx.score > 89}
+								<span class="shrink-0 rounded-full bg-alert px-2.5 py-1 text-xs font-semibold whitespace-nowrap text-white">Flagged · {tx.score}</span>
+							{:else}
+								<span class="shrink-0 rounded-full bg-mist px-2.5 py-1 text-xs whitespace-nowrap text-ink-muted">Clear · {tx.score}</span>
+							{/if}
+						</li>
 					{/each}
-				</div>
-				<div class="mt-3 rounded-2xl bg-white p-4 shadow-card">
-					<p class="flex items-center gap-1.5 text-xs font-medium text-accent"><Sparkles size={13} /> Agent report · verified</p>
-					<p class="mt-2 text-sm leading-relaxed">
-						A0004094 sent ฿28,774.05 to A0006872
-						<code class="rounded bg-mist px-1 text-[11px]">TX00120342</code> and ฿297,836.88 to A0011519
-						<code class="rounded bg-mist px-1 text-[11px]">TX00120956</code> from the same device, then balances were pushed
-						to QR merchants for cash-out…
+				</ul>
+				<div class="mt-3 rounded-2xl bg-ink p-4 text-white">
+					<p class="flex items-center gap-1.5 text-xs font-medium text-haze"><Sparkles size={13} /> AI agent · investigating</p>
+					<p class="mt-2 min-h-[6.5rem] text-sm leading-relaxed text-white/90">
+						{REPORT.slice(0, typed)}<span class="caret">▍</span>
 					</p>
-					<div class="mt-3 flex flex-wrap gap-1.5">
-						{#each ['pass_through', 'fan_in_out', 'shared device'] as t (t)}
-							<span class="rounded-full bg-ink px-2.5 py-1 text-[11px] text-white">{t}</span>
-						{/each}
-					</div>
 				</div>
-				<div class="mt-3 flex items-center justify-between rounded-2xl bg-ink px-4 py-3 text-white">
-					<span class="text-sm">Proposed: freeze 6 accounts + STR</span>
-					<span class="flex items-center gap-1 text-xs text-white/70"><Lock size={12} /> awaits analyst</span>
-				</div>
+			</div>
+			<div class="float absolute -bottom-5 left-3 flex items-center gap-2 rounded-full bg-white px-4 py-2 text-xs font-medium shadow-panel sm:-left-8">
+				<Lock size={13} class="text-alert" /> Freeze 6 accounts? <span class="text-ink-muted">awaits analyst</span>
+			</div>
+			<div class="float float-2 absolute -top-4 right-3 flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-medium shadow-panel sm:-right-6">
+				<BadgeCheck size={13} class="text-emerald-600" /> 142 / 142 ids verified
 			</div>
 		</div>
 	</section>
 
-	<!-- built on -->
-	<section class="mx-auto max-w-6xl px-4 pb-6 sm:px-6">
-		<p class="text-center text-xs font-semibold tracking-[0.18em] text-ink-muted">BUILT ON</p>
-		<div class="mt-4 flex flex-wrap justify-center gap-2">
-			{#each stack as s (s)}
-				<span class="rounded-full bg-white/80 px-4 py-2 text-sm font-medium shadow-card">{s}</span>
-			{/each}
-		</div>
-	</section>
-
-	<!-- stats -->
-	<section class="mx-auto max-w-6xl px-4 py-10 sm:px-6">
-		<div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
-			{#each stats as s (s.label)}
-				<div class="rounded-3xl bg-white p-5 shadow-card">
-					<p class="text-3xl font-semibold tracking-tight">{s.value}</p>
-					<p class="mt-1 text-sm text-ink-muted">{s.label}</p>
-				</div>
-			{/each}
+	<!-- powered by: logo marquee -->
+	<section class="py-10" aria-label="Powered by">
+		<p class="text-center text-xs font-semibold tracking-[0.18em] text-ink-muted">POWERED BY</p>
+		<div class="marquee mt-5">
+			<div class="marquee-track">
+				<!-- four copies; the track scrolls by half, so it loops seamlessly even on wide screens -->
+				{#each [0, 1, 2, 3] as copy (copy)}
+					{#each LOGOS as logo (logo.name + copy)}
+						<span class="flex shrink-0 items-center gap-2.5 rounded-full bg-white/80 px-5 py-2.5 shadow-card" aria-hidden={copy > 0}>
+							<svg viewBox="0 0 24 24" class="size-5" fill={logo.color} aria-hidden="true"><path d={logo.path} /></svg>
+							<span class="text-sm font-semibold">{logo.name}</span>
+						</span>
+					{/each}
+				{/each}
+			</div>
 		</div>
 	</section>
 
 	<!-- how it works -->
 	<section id="how" class="mx-auto max-w-6xl scroll-mt-20 px-4 py-14 sm:px-6">
-		<p class="text-xs font-semibold tracking-[0.18em] text-accent">HOW IT WORKS</p>
-		<h2 class="mt-3 max-w-2xl text-3xl font-semibold tracking-tight sm:text-4xl">From transfer to decision in four steps.</h2>
+		<div use:reveal>
+			<p class="text-xs font-semibold tracking-[0.18em] text-accent">HOW IT WORKS</p>
+			<h2 class="mt-3 max-w-2xl text-3xl font-semibold tracking-tight sm:text-4xl">From transfer to decision in four steps.</h2>
+		</div>
 		<div class="mt-8 grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-			{#each steps as s (s.n)}
-				<div class="glass rounded-3xl p-5 shadow-card">
+			{#each steps as s, i (s.n)}
+				<div use:reveal={i * 100} class="glass lift rounded-3xl p-5 shadow-card">
 					<div class="flex items-center justify-between">
 						<span class="text-sm font-semibold text-accent">{s.n}</span>
 						<span class="grid size-9 place-items-center rounded-full bg-ink text-white"><s.icon size={16} /></span>
@@ -217,31 +281,33 @@
 
 	<!-- capabilities -->
 	<section id="capabilities" class="mx-auto max-w-6xl scroll-mt-20 px-4 py-14 sm:px-6">
-		<p class="text-xs font-semibold tracking-[0.18em] text-accent">DETECT · INVESTIGATE · RECONCILE · FOLLOW UP</p>
-		<h2 class="mt-3 max-w-3xl text-3xl font-semibold tracking-tight sm:text-4xl">Six capabilities. One desk. Agents that show their work.</h2>
+		<div use:reveal>
+			<p class="text-xs font-semibold tracking-[0.18em] text-accent">DETECT · INVESTIGATE · RECONCILE · FOLLOW UP</p>
+			<h2 class="mt-3 max-w-3xl text-3xl font-semibold tracking-tight sm:text-4xl">Six capabilities. One desk. AI that shows its work.</h2>
+		</div>
 
 		<div class="mt-10 space-y-6">
 			<!-- 01 detection -->
-			<article class="grid items-center gap-6 rounded-[2rem] bg-white/60 p-5 shadow-card sm:p-8 lg:grid-cols-2">
+			<article use:reveal class="lift grid items-center gap-6 rounded-[2rem] bg-white/60 p-5 shadow-card sm:p-8 lg:grid-cols-2">
 				<div>
 					<p class="text-sm font-semibold text-accent">01 · REAL-TIME DETECTION</p>
-					<h3 class="mt-2 text-2xl font-semibold">A model and five rules you can explain.</h3>
+					<h3 class="mt-2 text-2xl font-semibold">Flags you can explain.</h3>
 					<p class="mt-3 text-ink-muted">
-						LightGBM scores every transfer on velocity, counterparty, device and graph features, computed by the same
-						FeatureEngine in training and live. Five rules with thresholds you can tune name the pattern, and SHAP shows why.
+						Our AI model scores every transfer as it happens. Five plain-language rules name the pattern, so an analyst
+						knows why something was flagged before opening it.
 					</p>
 				</div>
 				<div class="rounded-3xl bg-white p-5 shadow-card">
 					<div class="flex items-center justify-between">
 						<p class="text-sm font-medium">TX00120956 · ฿297,836.88</p>
-						<span class="rounded-full bg-alert px-2.5 py-1 text-xs font-semibold text-white">score 97</span>
+						<span class="pulse rounded-full bg-alert px-2.5 py-1 text-xs font-semibold text-white">risk 97</span>
 					</div>
 					<div class="mt-4 space-y-2">
 						{#each rules as r (r.name)}
-							<div class="flex items-center justify-between rounded-xl bg-mist/70 px-3 py-2 text-sm">
-								<code class="text-[13px]">{r.name}</code>
+							<div class="flex items-center justify-between gap-3 rounded-xl bg-mist/70 px-3 py-2 text-sm">
+								<span>{r.name}</span>
 								{#if r.hit}
-									<span class="text-xs font-semibold text-alert">HIT</span>
+									<span class="text-xs font-semibold text-alert">MATCH</span>
 								{:else}
 									<span class="text-xs text-ink-muted">clear</span>
 								{/if}
@@ -252,37 +318,39 @@
 			</article>
 
 			<!-- 02 agent -->
-			<article class="grid items-center gap-6 rounded-[2rem] bg-white/60 p-5 shadow-card sm:p-8 lg:grid-cols-2">
+			<article use:reveal class="lift grid items-center gap-6 rounded-[2rem] bg-white/60 p-5 shadow-card sm:p-8 lg:grid-cols-2">
 				<div class="lg:order-2">
-					<p class="text-sm font-semibold text-accent">02 · CITED AI INVESTIGATIONS</p>
-					<h3 class="mt-2 text-2xl font-semibold">No transaction id, no claim.</h3>
+					<p class="text-sm font-semibold text-accent">02 · AI INVESTIGATIONS</p>
+					<h3 class="mt-2 text-2xl font-semibold">No transaction, no claim.</h3>
 					<p class="mt-3 text-ink-muted">
-						The investigator runs on Vultr Serverless Inference with read-only tools for history, money tracing and name
-						screening. A validator checks every id it cites against the database and the tool outputs before an analyst
-						sees the report.
+						The AI agent can look but not touch. It reads account history, traces where the money went and writes a case
+						report. Before anyone sees it, every transaction it mentions is checked against the ledger.
 					</p>
 				</div>
-				<div class="rounded-3xl bg-ink p-5 font-mono text-[12.5px] leading-relaxed text-white/90 shadow-panel lg:order-1">
-					<p class="text-white/50">// tool calls (read only)</p>
-					<p>get_account_history("A0006872") <span class="text-emerald-300">→ 39 rows</span></p>
-					<p>trace_money("A0004094", hops=3) <span class="text-emerald-300">→ 18 accounts</span></p>
-					<p>screen_name("A0011519") <span class="text-emerald-300">→ Anucha Ka****</span></p>
-					<p class="mt-3 text-white/50">// validator</p>
-					<p>cited ids <span class="text-white">142</span> · in DB <span class="text-emerald-300">142</span> · from tools <span class="text-emerald-300">142</span></p>
-					<p class="mt-3 inline-flex items-center gap-1.5 rounded-full bg-emerald-400/15 px-3 py-1 text-emerald-300">
-						<BadgeCheck size={14} /> report valid · shown to analyst
+				<div class="rounded-3xl bg-ink p-5 text-white shadow-panel lg:order-1">
+					<p class="flex items-center gap-1.5 text-xs font-medium text-haze"><Sparkles size={13} /> Evidence check</p>
+					<ul class="mt-3 space-y-2.5">
+						{#each evidence as e, i (e)}
+							<li use:reveal={200 + i * 180} class="flex items-center gap-2.5 text-sm text-white/90">
+								<span class="grid size-5 place-items-center rounded-full bg-emerald-400/20 text-emerald-300"><Check size={12} /></span>
+								{e}
+							</li>
+						{/each}
+					</ul>
+					<p class="mt-4 inline-flex items-center gap-1.5 rounded-full bg-emerald-400/15 px-3 py-1 text-xs text-emerald-300">
+						<BadgeCheck size={14} /> Report verified · sent to analyst
 					</p>
 				</div>
 			</article>
 
 			<!-- 03 graph -->
-			<article class="grid items-center gap-6 rounded-[2rem] bg-white/60 p-5 shadow-card sm:p-8 lg:grid-cols-2">
+			<article use:reveal class="lift grid items-center gap-6 rounded-[2rem] bg-white/60 p-5 shadow-card sm:p-8 lg:grid-cols-2">
 				<div>
-					<p class="text-sm font-semibold text-accent">03 · GRAPH EXPLORER</p>
+					<p class="text-sm font-semibold text-accent">03 · FOLLOW THE MONEY</p>
 					<h3 class="mt-2 text-2xl font-semibold">See the ring, not just the row.</h3>
 					<p class="mt-3 text-ink-muted">
-						Flows in green and out in red, a time slider, network detection, and "trace from victim" to work out how much
-						can still be recovered. Click any node to open its entity page.
+						Money in shows green and money out shows red. Scrub through time, spot whole networks, and trace from a victim
+						to see how much can still be recovered.
 					</p>
 				</div>
 				<div class="rounded-3xl bg-white p-4 shadow-card">
@@ -299,64 +367,65 @@
 								class="flow"
 							/>
 						{/each}
+						<circle cx="150" cy="90" r="14" fill="#EC630D" class="ripple" />
 						{#each ring as n, i (i)}
 							<circle cx={n.x} cy={n.y} r={n.r} fill={n.c} stroke="white" stroke-width="2" />
 						{/each}
-						<text x="315" y="120" text-anchor="middle" font-size="10" fill="#4D506E">Gold Shop</text>
+						<text x="315" y="120" text-anchor="middle" font-size="10" fill="#4D506E">Gold shop</text>
 						<text x="150" y="122" text-anchor="middle" font-size="10" fill="#4D506E">collector</text>
 					</svg>
 				</div>
 			</article>
 
 			<!-- 04 recon -->
-			<article class="grid items-center gap-6 rounded-[2rem] bg-white/60 p-5 shadow-card sm:p-8 lg:grid-cols-2">
+			<article use:reveal class="lift grid items-center gap-6 rounded-[2rem] bg-white/60 p-5 shadow-card sm:p-8 lg:grid-cols-2">
 				<div class="lg:order-2">
 					<p class="text-sm font-semibold text-accent">04 · RECONCILIATION</p>
-					<h3 class="mt-2 text-2xl font-semibold">Three passes. Balanced entries.</h3>
+					<h3 class="mt-2 text-2xl font-semibold">The books match, or you know why.</h3>
 					<p class="mt-3 text-ink-muted">
-						Exact reference, fuzzy amount, time and name, then many-to-one gateway batches with fee checks. Each break is
-						typed, explained and paired with a balanced journal entry for finance to confirm or dismiss.
+						Bank and payment-gateway files are matched against the ledger automatically. Every mismatch gets a type, a
+						plain explanation and a ready-to-post journal entry for finance to confirm.
 					</p>
 				</div>
 				<div class="rounded-3xl bg-white p-5 shadow-card lg:order-1">
 					<div class="flex items-end justify-between">
 						<div>
-							<p class="text-xs text-ink-muted">Auto-match rate</p>
+							<p class="text-xs text-ink-muted">Matched automatically</p>
 							<p class="text-3xl font-semibold">99.93%</p>
 						</div>
-						<p class="text-sm text-ink-muted">87,882 matched</p>
+						<span class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">60 breaks explained</span>
 					</div>
 					<div class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
-						{#each breaks as b (b.label)}
-							<div class="rounded-xl bg-mist/70 px-3 py-2">
+						{#each breaks as b, i (b.label)}
+							<div use:reveal={i * 70} class="rounded-xl bg-mist/70 px-3 py-2">
 								<p class="text-[11px] text-ink-muted">{b.label}</p>
 								<p class="font-semibold text-alert">{b.n}</p>
 							</div>
 						{/each}
 					</div>
 					<div class="mt-3 rounded-xl border border-mist px-3 py-2 text-xs">
-						<div class="flex justify-between"><span>Dr 1120 Settlement clearing</span><span>฿473.93</span></div>
-						<div class="flex justify-between text-ink-muted"><span>Cr 2190 Suspense</span><span>฿473.93</span></div>
+						<div class="flex justify-between"><span>Dr Settlement clearing</span><span>฿473.93</span></div>
+						<div class="flex justify-between text-ink-muted"><span>Cr Suspense</span><span>฿473.93</span></div>
 					</div>
 				</div>
 			</article>
 
 			<!-- 05 follow-ups -->
-			<article class="grid items-center gap-6 rounded-[2rem] bg-white/60 p-5 shadow-card sm:p-8 lg:grid-cols-2">
+			<article use:reveal class="lift grid items-center gap-6 rounded-[2rem] bg-white/60 p-5 shadow-card sm:p-8 lg:grid-cols-2">
 				<div>
 					<p class="text-sm font-semibold text-accent">05 · PAYMENT FOLLOW-UPS</p>
 					<h3 class="mt-2 text-2xl font-semibold">Polite first. Firm when needed.</h3>
 					<p class="mt-3 text-ink-muted">
-						The agent drafts Thai and English reminders on a three-step ladder, reads replies for promised pay dates, and
-						opens victim-refund updates when a case is confirmed as fraud. Nothing leaves without approval.
+						AI drafts reminders in Thai and English, gets firmer step by step, and reads replies for promised pay dates.
+						When a fraud case closes, victims get refund updates too. Nothing is sent without approval.
 					</p>
 				</div>
 				<div class="rounded-3xl bg-white p-5 shadow-card">
 					<div class="flex items-center justify-between text-xs text-ink-muted">
-						<span class="flex items-center gap-1.5"><Mail size={13} /> Draft · L1 friendly</span>
+						<span class="flex items-center gap-1.5"><Mail size={13} /> Draft · friendly reminder</span>
 						<span>due 21 Nov</span>
 					</div>
-					<p class="mt-3 font-[IBM_Plex_Sans_Thai] text-sm">เรียน ร้านทองเยาวราช กรุณาตรวจสอบค่าธรรมเนียม ฿1,250.00 ที่ยังค้างชำระ…</p>
+					<p class="mt-3 text-sm">เรียน ร้านทองเยาวราช กรุณาตรวจสอบค่าธรรมเนียม ฿1,250.00 ที่ยังค้างชำระ…</p>
 					<p class="mt-2 text-sm text-ink-muted">Dear Yaowarat Gold Shop, a fee of ฿1,250.00 is still outstanding…</p>
 					<div class="mt-4 flex gap-2">
 						<span class="flex items-center gap-1 rounded-full bg-ink px-3 py-1.5 text-xs text-white"><Check size={12} /> Approve & send</span>
@@ -366,35 +435,33 @@
 			</article>
 
 			<!-- 06 privacy -->
-			<article class="grid items-center gap-6 rounded-[2rem] bg-white/60 p-5 shadow-card sm:p-8 lg:grid-cols-2">
+			<article use:reveal class="lift grid items-center gap-6 rounded-[2rem] bg-white/60 p-5 shadow-card sm:p-8 lg:grid-cols-2">
 				<div class="lg:order-2">
-					<p class="text-sm font-semibold text-accent">06 · PRIVACY & TUNING</p>
-					<h3 class="mt-2 text-2xl font-semibold">Masked by default. Better every week.</h3>
+					<p class="text-sm font-semibold text-accent">06 · PRIVACY & LEARNING</p>
+					<h3 class="mt-2 text-2xl font-semibold">Private by default. Smarter every week.</h3>
 					<p class="mt-3 text-ink-muted">
-						Browsers can only read masked names. Seeing a full name takes a role, a reason and an audit entry. Analyst
-						decisions become labels: train a challenger, compare it with the champion, and promote it only with approval.
+						Names are masked on screen. Seeing a full name takes the right role and a stated reason, and it is recorded.
+						Every analyst decision teaches our model, and a new version goes live only after a person approves it.
 					</p>
 				</div>
 				<div class="space-y-3 lg:order-1">
-					<div class="flex items-center justify-between rounded-3xl bg-white p-4 shadow-card">
+					<div class="flex items-center justify-between gap-3 rounded-3xl bg-white p-4 shadow-card">
 						<div class="flex items-center gap-3">
-							<span class="grid size-10 place-items-center rounded-full bg-alert text-white"><EyeOff size={16} /></span>
+							<span class="grid size-10 shrink-0 place-items-center rounded-full bg-alert text-white"><EyeOff size={16} /></span>
 							<div>
 								<p class="font-semibold">Somying Sd****</p>
-								<p class="text-xs text-ink-muted">A0006872 · PII masked</p>
+								<p class="text-xs text-ink-muted">A0006872 · name hidden</p>
 							</div>
 						</div>
-						<span class="rounded-full bg-mist px-3 py-1.5 text-xs">Reveal · reason required</span>
+						<span class="rounded-full bg-mist px-3 py-1.5 text-xs whitespace-nowrap">Reveal · reason needed</span>
 					</div>
-					<div class="grid grid-cols-2 gap-3">
-						<div class="rounded-3xl bg-white p-4 shadow-card">
-							<p class="text-xs text-ink-muted">Champion PR-AUC</p>
-							<p class="text-2xl font-semibold">0.9844</p>
+					<div class="flex items-center gap-3 rounded-3xl bg-white p-4 shadow-card">
+						<span class="grid size-10 shrink-0 place-items-center rounded-full bg-ink text-white"><BrainCircuit size={16} /></span>
+						<div class="min-w-0 flex-1">
+							<p class="text-sm font-semibold">New model ready · learned from 1 week of decisions</p>
+							<div class="mt-2 h-2 overflow-hidden rounded-full bg-mist"><div class="bar h-full rounded-full bg-accent"></div></div>
 						</div>
-						<div class="rounded-3xl bg-white p-4 shadow-card">
-							<p class="text-xs text-ink-muted">Mule accounts caught</p>
-							<p class="text-2xl font-semibold">100%</p>
-						</div>
+						<span class="rounded-full bg-ink px-3 py-1.5 text-xs whitespace-nowrap text-white">Approve</span>
 					</div>
 				</div>
 			</article>
@@ -403,11 +470,11 @@
 
 	<!-- demo video -->
 	<section id="demo" class="mx-auto max-w-6xl scroll-mt-20 px-4 py-14 sm:px-6">
-		<div class="text-center">
+		<div use:reveal class="text-center">
 			<p class="text-xs font-semibold tracking-[0.18em] text-accent">PRODUCT TOUR</p>
 			<h2 class="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">See a mule ring go from alert to decision.</h2>
 		</div>
-		<div class="relative mt-8">
+		<div use:reveal={100} class="relative mt-8">
 			<div class="absolute -inset-4 -z-10 rounded-[2.5rem] bg-haze/50 blur-3xl"></div>
 			<div class="glass overflow-hidden rounded-[2rem] p-2 shadow-panel sm:p-3">
 				<div class="flex items-center gap-1.5 px-3 pb-2 sm:pb-3">
@@ -418,10 +485,13 @@
 				</div>
 				<!-- svelte-ignore a11y_media_has_caption -->
 				<video
+					bind:this={video}
 					class="aspect-[16/10] w-full rounded-2xl bg-ink object-cover"
 					src="/demo/zentry-demo.mp4"
 					poster="/demo/poster.jpg"
 					controls
+					muted
+					loop
 					playsinline
 					preload="metadata"
 				></video>
@@ -431,18 +501,18 @@
 
 	<!-- guardrails -->
 	<section id="guardrails" class="mx-auto max-w-6xl scroll-mt-20 px-4 py-14 sm:px-6">
-		<div class="grid gap-8 rounded-[2rem] bg-ink p-6 text-white shadow-panel sm:p-10 lg:grid-cols-[1fr_1.3fr]">
+		<div use:reveal class="grid gap-8 rounded-[2rem] bg-ink p-6 text-white shadow-panel sm:p-10 lg:grid-cols-[1fr_1.3fr]">
 			<div>
 				<p class="text-xs font-semibold tracking-[0.18em] text-haze">GUARDRAILS</p>
-				<h2 class="mt-3 text-3xl font-semibold tracking-tight">Agents propose. People decide.</h2>
+				<h2 class="mt-3 text-3xl font-semibold tracking-tight">AI proposes. People decide.</h2>
 				<p class="mt-3 text-white/70">
-					Built for regulated work. Each agent has a narrow toolset, a validator and an audit trail, so a reviewer can
-					trace every sentence back to data.
+					Built for regulated work. Every AI agent has a narrow job, its work is checked, and everything it does is on the
+					record.
 				</p>
 			</div>
 			<ul class="grid gap-3 sm:grid-cols-2">
-				{#each guardrails as g (g)}
-					<li class="flex gap-3 rounded-2xl bg-white/5 p-4 text-sm text-white/85">
+				{#each guardrails as g, i (g)}
+					<li use:reveal={i * 80} class="flex gap-3 rounded-2xl bg-white/5 p-4 text-sm text-white/85 transition hover:bg-white/10">
 						<FileCheck2 size={18} class="mt-0.5 shrink-0 text-haze" />
 						{g}
 					</li>
@@ -453,15 +523,15 @@
 
 	<!-- cta -->
 	<section class="mx-auto max-w-6xl px-4 pt-6 pb-16 sm:px-6">
-		<div class="glass flex flex-col items-start justify-between gap-6 rounded-[2rem] p-6 shadow-card sm:p-10 md:flex-row md:items-center">
+		<div use:reveal class="glass flex flex-col items-start justify-between gap-6 rounded-[2rem] p-6 shadow-card sm:p-10 md:flex-row md:items-center">
 			<div>
 				<h2 class="text-2xl font-semibold tracking-tight sm:text-3xl">Open the desk.</h2>
 				<p class="mt-2 text-ink-muted">
 					Four demo roles: analyst, finance ops, collections and compliance manager. Each sees only what its role allows.
 				</p>
 			</div>
-			<a href="/login" class="flex shrink-0 items-center gap-2 rounded-full bg-ink px-6 py-3 text-sm font-medium text-white">
-				Sign in to the demo <ArrowRight size={16} />
+			<a href="/login" class="group flex shrink-0 items-center gap-2 rounded-full bg-ink px-6 py-3 text-sm font-medium text-white transition hover:scale-[1.03]">
+				Sign in to the demo <ArrowRight size={16} class="transition group-hover:translate-x-0.5" />
 			</a>
 		</div>
 	</section>
@@ -475,6 +545,146 @@
 </div>
 
 <style>
+	/* scroll reveal */
+	:global(.reveal) {
+		opacity: 0;
+		transform: translateY(18px);
+		transition:
+			opacity 0.7s ease var(--d, 0ms),
+			transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) var(--d, 0ms);
+	}
+	:global(.reveal.in) {
+		opacity: 1;
+		transform: none;
+	}
+
+	.lift {
+		transition:
+			transform 0.3s ease,
+			box-shadow 0.3s ease;
+	}
+	.lift:hover {
+		transform: translateY(-4px);
+		box-shadow: 0 30px 80px rgb(77 80 110 / 0.18);
+	}
+
+	/* background */
+	.blob {
+		position: absolute;
+		border-radius: 9999px;
+		filter: blur(70px);
+		animation: drift 18s ease-in-out infinite alternate;
+	}
+	.blob-2 {
+		animation-duration: 22s;
+		animation-delay: -6s;
+	}
+	.blob-3 {
+		animation-duration: 26s;
+		animation-delay: -12s;
+	}
+	@keyframes drift {
+		to {
+			transform: translate(60px, 40px) scale(1.12);
+		}
+	}
+
+	/* headline shimmer */
+	.shine {
+		background: linear-gradient(90deg, #4d506e 0%, #6c72ac 30%, #ec630d 50%, #6c72ac 70%, #4d506e 100%);
+		background-size: 250% 100%;
+		-webkit-background-clip: text;
+		background-clip: text;
+		color: transparent;
+		animation: shine 7s ease-in-out infinite;
+	}
+	@keyframes shine {
+		0%,
+		100% {
+			background-position: 100% 0;
+		}
+		50% {
+			background-position: 0 0;
+		}
+	}
+
+	.live-dot {
+		display: inline-block;
+		width: 8px;
+		height: 8px;
+		border-radius: 9999px;
+		background: #16a34a;
+		box-shadow: 0 0 0 0 rgb(22 163 74 / 0.6);
+		animation: ping 1.8s ease-out infinite;
+	}
+	@keyframes ping {
+		to {
+			box-shadow: 0 0 0 8px rgb(22 163 74 / 0);
+		}
+	}
+
+	.feed-row {
+		animation: slide-in 0.45s cubic-bezier(0.2, 0.7, 0.2, 1);
+	}
+	@keyframes slide-in {
+		from {
+			opacity: 0;
+			transform: translateY(-12px) scale(0.98);
+		}
+	}
+
+	.caret {
+		animation: blink 1s steps(1) infinite;
+		color: #9ca7de;
+	}
+	@keyframes blink {
+		50% {
+			opacity: 0;
+		}
+	}
+
+	.float {
+		animation: float 5s ease-in-out infinite;
+	}
+	.float-2 {
+		animation-delay: -2.5s;
+	}
+	@keyframes float {
+		50% {
+			transform: translateY(-8px);
+		}
+	}
+
+	.pulse {
+		animation: pulse 2s ease-in-out infinite;
+	}
+	@keyframes pulse {
+		50% {
+			box-shadow: 0 0 0 6px rgb(236 99 13 / 0.15);
+		}
+	}
+
+	/* logo marquee */
+	.marquee {
+		overflow: hidden;
+		padding-block: 6px;
+		mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
+	}
+	.marquee-track {
+		display: flex;
+		width: max-content;
+		gap: 0.75rem;
+		animation: marquee 32s linear infinite;
+	}
+	.marquee:hover .marquee-track {
+		animation-play-state: paused;
+	}
+	@keyframes marquee {
+		to {
+			transform: translateX(calc(-50% - 0.375rem));
+		}
+	}
+
 	.flow {
 		animation: march 1.2s linear infinite;
 	}
@@ -483,9 +693,42 @@
 			stroke-dashoffset: -18;
 		}
 	}
+	.ripple {
+		transform-origin: 150px 90px;
+		animation: ripple 2.4s ease-out infinite;
+	}
+	@keyframes ripple {
+		from {
+			opacity: 0.5;
+			transform: scale(1);
+		}
+		to {
+			opacity: 0;
+			transform: scale(2.6);
+		}
+	}
+
+	.bar {
+		animation: fill 3.5s ease-in-out infinite;
+	}
+	@keyframes fill {
+		from {
+			width: 8%;
+		}
+		70%,
+		to {
+			width: 100%;
+		}
+	}
+
 	@media (prefers-reduced-motion: reduce) {
-		.flow {
-			animation: none;
+		* {
+			animation: none !important;
+			transition: none !important;
+		}
+		:global(.reveal) {
+			opacity: 1;
+			transform: none;
 		}
 	}
 </style>
