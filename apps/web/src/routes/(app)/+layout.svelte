@@ -21,7 +21,7 @@
 	const nav = [
 		{ href: '/', label: 'Command Center', icon: LayoutDashboard, ready: true },
 		{ href: '/alerts', label: 'Alert Queue', icon: BellRing, ready: true },
-		{ href: '/cases', label: 'Cases', icon: FolderSearch, ready: false },
+		{ href: '/cases', label: 'Cases', icon: FolderSearch, ready: true },
 		{ href: '/graph', label: 'Graph Explorer', icon: Network, ready: false },
 		{ href: '/recon', label: 'Reconciliation', icon: ArrowRightLeft, ready: false },
 		{ href: '/follow-ups', label: 'Follow-ups', icon: Receipt, ready: false },
@@ -34,7 +34,7 @@
 	<nav class="hidden flex-col items-center gap-2 pt-2 sm:flex" aria-label="Main">
 		<span class="mb-4 grid size-10 place-items-center rounded-full bg-ink text-white"><ShieldCheck size={18} /></span>
 		{#each nav as item (item.href)}
-			{@const active = page.url.pathname === item.href}
+			{@const active = item.href === '/' ? page.url.pathname === '/' : page.url.pathname.startsWith(item.href)}
 			<a
 				href={item.ready ? item.href : undefined}
 				aria-disabled={!item.ready}
@@ -59,7 +59,7 @@
 				<ShieldCheck size={14} class="text-accent" /> Zentry · Demo e-wallet
 			</div>
 			<p class="hidden text-sm font-medium text-ink-muted md:block">
-				{nav.find((n) => n.href === page.url.pathname)?.label ?? ''}
+				{nav.find((n) => (n.href === '/' ? page.url.pathname === '/' : page.url.pathname.startsWith(n.href)))?.label ?? ''}
 			</p>
 			<div class="rounded-full bg-ink px-3 py-1.5 text-xs font-medium text-white">
 				{data.role ? ROLE_LABEL[data.role] : 'No role'}

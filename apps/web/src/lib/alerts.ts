@@ -13,10 +13,11 @@ export type AlertRow = {
 	txn_ts: string | null;
 	created_at: string;
 	accounts: { type: string; customers: { name_en: string; name_th: string } | null } | null;
+	case_links: { case_id: string }[];
 };
 
 export const ALERT_SELECT =
-	'id, transaction_id, account_id, score, priority, reason, rule_hits, top_features_json, status, txn_ts, created_at, accounts(type, customers(name_en, name_th))';
+	'id, transaction_id, account_id, score, priority, reason, rule_hits, top_features_json, status, txn_ts, created_at, accounts(type, customers(name_en, name_th)), case_links(case_id)';
 
 export const RULE_SHORT: Record<string, string> = {
 	pass_through: 'Pass-through',

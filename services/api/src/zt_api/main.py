@@ -1,5 +1,6 @@
-"""Zentry API: health and transaction ingest. Case, decision, train and recon routes arrive in later milestones."""
+"""Zentry API: health, transaction ingest, case investigation and decisions."""
 
+from contextlib import asynccontextmanager
 from typing import Literal
 
 import nats
@@ -7,10 +8,22 @@ import psycopg
 from fastapi import FastAPI, Response
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StrictInt
 
+from zt_core.events import NatsEventBus
 from zt_core.ingest import ingest_transactions
 from zt_core.settings import env
 
-app = FastAPI(title="Zentry API", version="0.1.0")
+from .cases import router as cases_router
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    app.state.bus = await NatsEventBus.connect(env("NATS_URL"), "zt-api")
+    yield
+    await app.state.bus.close()
+
+
+app = FastAPI(title="Zentry API", version="0.1.0", lifespan=lifespan)
+app.include_router(cases_router)
 
 
 @app.get("/healthz")

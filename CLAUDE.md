@@ -30,7 +30,7 @@ supabase/{config.toml,migrations}  infra/{docker-compose.yml,coolify,vultr}  scr
   txn ids are deterministic and would hit the 2h dedup window)
 - `make replay` — push all of sim_feed through ingest → outbox → NATS → scorer (~4 min)
 - `make demo-stream RATE=15` — live-speed replay for the demo
-- `make check-m1`, `make check-m2` — acceptance checks
+- `make check-m1` / `check-m2` / `check-m3` — acceptance checks (m2/m3 need `make reset && make replay` first)
 - Local runtime is Colima (`colima start`); Supabase CLI via `npx supabase`.
 
 ## Rules (non-negotiable)
@@ -40,6 +40,10 @@ supabase/{config.toml,migrations}  infra/{docker-compose.yml,coolify,vultr}  scr
 - Money is integer **satang** in `BIGINT` columns named `*_satang`. Never floats.
   Convert only at the UI edge (`zt_core.money`).
 - Every agent claim must cite real transaction ids; validate ids exist before display.
+- Investigator (`services/worker/src/zt_worker/agent/`): read tools run in READ ONLY transactions;
+  `propose_action` is the only writer; `validator.py` rejects reports citing ids that don't exist or
+  weren't returned by a tool. Runs as `llm` (Vultr Inference, needs VULTR_INFERENCE_API_KEY + LLM_MODEL)
+  or `offline` (deterministic planner, same tools) when no key is set.
 - Agents: read-only tools except `propose_action`. Human approval for freezes, STRs,
   outbound messages and model promotion. Log prompt + output to `audit_log`.
 - Ground-truth columns prefixed `gt_` exist for evaluation only — never use them as model features

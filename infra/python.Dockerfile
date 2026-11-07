@@ -11,6 +11,7 @@ COPY services/api/pyproject.toml ./services/api/pyproject.toml
 COPY services/worker/pyproject.toml ./services/worker/pyproject.toml
 COPY services/trainer/pyproject.toml ./services/trainer/pyproject.toml
 COPY data/generator/src ./data/generator/src
+COPY data/typologies ./data/typologies
 COPY services/api/src ./services/api/src
 COPY services/worker/src ./services/worker/src
 COPY services/trainer/src ./services/trainer/src

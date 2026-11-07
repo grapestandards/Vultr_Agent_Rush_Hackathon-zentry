@@ -35,6 +35,7 @@ class Dataset:
     transactions: list[tuple] = field(default_factory=list)
     settlements: list[tuple] = field(default_factory=list)
     breaks: list[dict] = field(default_factory=list)  # ground-truth manifest of injected breaks
+    watchlist: list[tuple] = field(default_factory=list)
     rings: list[dict] = field(default_factory=list)
 
 
@@ -209,7 +210,21 @@ def generate(seed: int = 42, n_customers: int = 10_000, n_txns: int = 200_000, n
     ds.transactions = txns
 
     _settlements(rng, ds, txns, account_row, cust_name, set(merchants))
+    _watchlist(rng, ds)
     return ds
+
+
+def _watchlist(rng: random.Random, ds: Dataset) -> None:
+    """Synthetic internal blacklist: two cash-out mules from ring 2 (so screening has true hits)
+    plus unrelated decoy names."""
+    names = {c[0]: (c[2], c[1]) for c in ds.customers}
+    ring2_l3 = sorted(a[1] for a in ds.accounts if a[7] == 2 and a[8] == 3)[:2]
+    for cust in ring2_l3:
+        en, th = names[cust]
+        ds.watchlist.append((en, th, "internal_mule_blacklist", "Previously reported as a mule (synthetic)"))
+    for _ in range(12):
+        (fth, fen), (lth, len_) = rng.choice(FIRST), rng.choice(LAST)
+        ds.watchlist.append((f"{fen} {len_}", f"{fth} {lth}", "synthetic_sanctions", "Decoy entry for demo"))
 
 
 def _layer_out(rng, add_txn, src, amount, t, layers, device_of, acct_owner, cashout, ring, depth) -> None:

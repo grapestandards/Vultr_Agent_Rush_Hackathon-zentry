@@ -20,6 +20,7 @@ from zt_core.events import EventBus, Message
 from zt_core.features import FEATURES, AccountMeta, FeatureEngine, ScoringRow, Txn
 from zt_core.rules import Rule
 
+from .cases import attach_to_cases
 from .explain import reason
 
 log = logging.getLogger("zt_worker.scorer")
@@ -113,14 +114,22 @@ async def run_scorer(bus: EventBus, database_url: str, model_root: Path) -> None
                 continue
             try:
                 alerts = scorer.score([txn_from(m.data) for m in batch])
+                new_cases: list[str] = []
                 if alerts:
                     async with conn.transaction():
                         async with conn.cursor() as cur:
-                            await cur.executemany(
-                                f"""insert into public.alerts ({', '.join(cols)})
-                                    values ({', '.join(['%s'] * len(cols))})
-                                    on conflict (transaction_id, account_id) do nothing""",
-                                [[a[c] for c in cols] for a in alerts])
+                            ids = []
+                            for a in alerts:
+                                await cur.execute(
+                                    f"""insert into public.alerts ({', '.join(cols)})
+                                        values ({', '.join(['%s'] * len(cols))})
+                                        on conflict (transaction_id, account_id) do nothing returning id""",
+                                    [a[c] for c in cols])
+                                if row := await cur.fetchone():
+                                    ids.append(row[0])
+                            new_cases = await attach_to_cases(cur, ids)
+                    for case_id in new_cases:  # the investigator skips cases unchanged since its last run
+                        await bus.publish("jobs.investigate", {"case_id": case_id})
                     for a in alerts:
                         await bus.publish("alerts.new", {k: a[k] for k in ("transaction_id", "account_id", "score")},
                                           msg_id=f"alert:{a['transaction_id']}:{a['account_id']}")

@@ -17,6 +17,7 @@ from .generate import END, START, Dataset
 TABLES = [
     "audit_log", "messages", "follow_ups", "recon_matches", "recon_runs", "case_links", "cases",
     "alerts", "train_runs", "outbox", "sim_feed", "settlements", "transactions", "accounts", "customers",
+    "watchlist", "case_proposals",
 ]
 
 COLUMNS = {
@@ -26,6 +27,7 @@ COLUMNS = {
                      "gt_is_fraud", "gt_ring"],
     "settlements": ["id", "source", "ref_no", "counterparty_name", "amount_satang", "fee_satang", "value_date",
                     "raw_file_key", "gt_break_type"],
+    "watchlist": ["name_en", "name_th", "list", "reason"],
 }
 
 
@@ -35,7 +37,7 @@ def load_db(ds: Dataset, database_url: str, live_from: datetime) -> None:
     history = [t for t in ds.transactions if t[6] < live_from]
     feed = [t for t in ds.transactions if t[6] >= live_from]
     tables = {"customers": ds.customers, "accounts": ds.accounts, "transactions": history,
-              "sim_feed": feed, "settlements": ds.settlements}
+              "sim_feed": feed, "settlements": ds.settlements, "watchlist": ds.watchlist}
     with psycopg.connect(database_url) as conn, conn.cursor() as cur:
         cur.execute("truncate " + ", ".join(f"public.{t}" for t in TABLES) + " restart identity cascade")
         for table, rows in tables.items():

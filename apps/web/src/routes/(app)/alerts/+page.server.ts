@@ -5,7 +5,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const { data, error } = await locals.supabase
 		.from('alerts')
 		.select(ALERT_SELECT)
-		.eq('status', 'new')
+		.in('status', ['new', 'in_case'])
 		.order('priority')
 		.order('score', { ascending: false })
 		.order('created_at', { ascending: false })

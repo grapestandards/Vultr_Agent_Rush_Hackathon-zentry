@@ -104,7 +104,13 @@
 						</div>
 						<div class="min-w-0 flex-1">
 							<div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-								<p class="font-semibold">{a.accounts?.customers?.name_en ?? a.account_id}</p>
+								{#if a.case_links?.[0]}
+									<a href="/cases/{a.case_links[0].case_id}" class="font-semibold hover:text-accent">
+										{a.accounts?.customers?.name_en ?? a.account_id}
+									</a>
+								{:else}
+									<p class="font-semibold">{a.accounts?.customers?.name_en ?? a.account_id}</p>
+								{/if}
 								<p class="font-mono text-xs text-ink-muted">{a.account_id} · {a.accounts?.type}</p>
 								<p class="ml-auto text-xs text-ink-muted">P{a.priority} · {fmtTime(a.txn_ts)}</p>
 							</div>

@@ -37,6 +37,7 @@ services:
     env_file: ../.env
     environment:
       SUPABASE_INTERNAL_URL: http://supabase_kong_zentry:8000
+      API_INTERNAL_URL: http://api:8000
     ports: ["3000:3000"]
 
 volumes:
