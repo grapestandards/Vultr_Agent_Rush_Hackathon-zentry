@@ -42,15 +42,16 @@
 		return () => channel && supabase.removeChannel(channel);
 	});
 
-	// trade-off chart: alerts/day (x) vs share of mule accounts caught (y)
+	// trade-off chart: clean accounts flagged (x, false positives) vs fraud rows recalled (y),
+	// both axes fitted to the data so small differences between models stay visible
 	const W = 320, H = 170, P = 28;
-	const xMax = $derived(
-		Math.max(10, ...[...(challenger?.card_json.curve ?? []), ...(challenger?.card_json.champion?.curve ?? [])].map((c) => c.alerts_per_day))
-	);
+	const points = $derived([...(challenger?.card_json.curve ?? []), ...(challenger?.card_json.champion?.curve ?? [])]);
+	const xMax = $derived(Math.max(5, ...points.map((c) => c.clean_accounts_flagged)));
+	const yMin = $derived(Math.max(0, Math.min(...points.map((c) => c.recall), 1) - 0.01));
 	const sx = (v: number) => P + (v / xMax) * (W - P - 8);
-	const sy = (v: number) => H - P - v * (H - P - 10);
+	const sy = (v: number) => H - P - ((v - yMin) / (1 - yMin || 1)) * (H - P - 10);
 	const path = (curve: CurvePoint[] = []) =>
-		curve.map((c, i) => `${i ? 'L' : 'M'}${sx(c.alerts_per_day).toFixed(1)},${sy(c.mules_caught).toFixed(1)}`).join(' ');
+		curve.map((c, i) => `${i ? 'L' : 'M'}${sx(c.clean_accounts_flagged).toFixed(1)},${sy(c.recall).toFixed(1)}`).join(' ');
 
 	const pct = (v: number | undefined) => (v === undefined ? '—' : `${(v * 100).toFixed(1)}%`);
 	const fmt = (v: number | undefined, d = 4) => (v === undefined ? '—' : v.toFixed(d));
@@ -173,15 +174,16 @@
 					</p>
 
 					<div class="mt-4 grid gap-4 sm:grid-cols-[1fr_auto] sm:items-center">
-						<svg viewBox="0 0 {W} {H}" class="w-full" role="img" aria-label="Mules caught versus alerts per day">
+						<svg viewBox="0 0 {W} {H}" class="w-full" role="img" aria-label="Fraud recall versus clean accounts flagged">
 							<line x1={P} y1={H - P} x2={W - 8} y2={H - P} stroke="#d9ddf0" />
 							<line x1={P} y1={10} x2={P} y2={H - P} stroke="#d9ddf0" />
-							<text x={P} y={H - 8} font-size="9" fill="#4d506e">alerts / day →</text>
-							<text x={2} y={14} font-size="9" fill="#4d506e">caught</text>
+							<text x={P} y={H - 8} font-size="9" fill="#4d506e">clean accounts flagged → (0–{xMax})</text>
+							<text x={2} y={14} font-size="9" fill="#4d506e">recall</text>
+							<text x={2} y={H - P} font-size="8" fill="#4d506e">{Math.round(yMin * 100)}%</text>
 							<path d={path(card.champion?.curve)} fill="none" stroke="#9ca7de" stroke-width="2" />
 							<path d={path(card.curve)} fill="none" stroke="#ec630d" stroke-width="2" />
-							{#if oldAt}<circle cx={sx(oldAt.alerts_per_day)} cy={sy(oldAt.mules_caught)} r="4" fill="#9ca7de" />{/if}
-							{#if newAt}<circle cx={sx(newAt.alerts_per_day)} cy={sy(newAt.mules_caught)} r="4.5" fill="#ec630d" stroke="#fff" stroke-width="1.5" />{/if}
+							{#if oldAt}<circle cx={sx(oldAt.clean_accounts_flagged)} cy={sy(oldAt.recall)} r="4" fill="#9ca7de" />{/if}
+							{#if newAt}<circle cx={sx(newAt.clean_accounts_flagged)} cy={sy(newAt.recall)} r="4.5" fill="#ec630d" stroke="#fff" stroke-width="1.5" />{/if}
 						</svg>
 						<div class="flex gap-3 text-xs sm:flex-col">
 							<span class="flex items-center gap-1.5"><span class="h-0.5 w-4 bg-[#9ca7de]"></span>champion</span>

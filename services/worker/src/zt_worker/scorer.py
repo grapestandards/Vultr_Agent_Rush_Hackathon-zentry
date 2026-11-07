@@ -130,11 +130,13 @@ class Scorer:
         if now - self._checked < RELOAD_EVERY_S and now - self._flushed < SHADOW_FLUSH_S:
             return
         with psycopg.connect(self.database_url) as conn:
-            if now - self._flushed >= SHADOW_FLUSH_S and self.shadow and self.shadow_stats.get("rows"):
-                conn.execute("update public.model_versions set shadow_json = %s where id = %s",
-                             (json.dumps(self.shadow_stats | {"updated_at": datetime.now().isoformat()}), self.shadow.id))
-                conn.commit()
+            if now - self._flushed >= SHADOW_FLUSH_S:
                 self._flushed = now
+                if self.shadow and self.shadow_stats.get("rows"):
+                    conn.execute("update public.model_versions set shadow_json = %s where id = %s",
+                                 (json.dumps(self.shadow_stats | {"updated_at": datetime.now().isoformat()}),
+                                  self.shadow.id))
+                    conn.commit()
             if now - self._checked >= RELOAD_EVERY_S:
                 self.refresh_models(conn)
 

@@ -4,7 +4,7 @@ alter table public.model_versions
   add column name          text,
   add column card_json     jsonb not null default '{}',   -- holdout curves, champion comparison, gained/lost accounts
   add column shadow_json   jsonb,                         -- live shadow stats written by the scorer
-  add column train_run_id  uuid references public.train_runs(id),
+  add column train_run_id  uuid references public.train_runs(id) on delete set null,
   add column promoted_at   timestamptz,
   add column promoted_by   uuid references auth.users(id);
 

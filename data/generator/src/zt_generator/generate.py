@@ -1,7 +1,7 @@
 """Build a deterministic synthetic dataset in memory.
 
-Normal e-wallet traffic (P2P transfers inside social circles, merchant QR/PromptPay payments)
-plus embedded mule rings: victims → layer 1 (collect) → layer 2 (split) → layer 3 (cash-out via
+Normal e-wallet traffic (P2P transfers inside social circles, merchant QR/PromptPay payments),
+legitimate look-alikes (group collectors, new online sellers, shared devices), plus embedded mule rings: victims → layer 1 (collect) → layer 2 (split) → layer 3 (cash-out via
 gold/mobile shops), each hop within minutes. Settlement files are derived from merchant payments
 with reconciliation breaks injected on purpose.
 """
@@ -117,7 +117,12 @@ def generate(seed: int = 42, n_customers: int = 10_000, n_txns: int = 200_000, n
     rng.shuffle(pool)
     mule_customers: set[str] = set()
     victims_used: set[str] = set()
+    # Ring styles: fresh accounts opened for the scam, rented accounts (old, normal KYC, own phones,
+    # everyday activity), and slow layering (hours between hops instead of minutes).
+    styles = {1: ("fresh", 1), 2: ("rented", 1), 3: ("fresh", 1), 4: ("rented", 20), 5: ("fresh", 12)}
+    rented_customers: set[str] = set()
     for r in range(1, n_rings + 1):
+        style, pace = styles.get(r, ("fresh", 1))
         size = rng.randint(10, 20)
         n_l1 = round(size * 0.4)
         n_l3 = max(2, round(size * 0.25))
@@ -130,14 +135,17 @@ def generate(seed: int = 42, n_customers: int = 10_000, n_txns: int = 200_000, n
                 acct = pool.pop()
                 cust = acct_owner[acct]
                 mule_customers.add(cust)
-                opened = activity_start - timedelta(days=rng.randint(2, 25), seconds=rng.randrange(86400))
                 row = account_row[acct]
-                row[4] = opened
                 row[6], row[7], row[8] = "mule", r, layer
-                acct_opened[acct] = opened
-                ds.customers[int(cust[1:]) - 1][3] = 1          # thin KYC
-                ds.customers[int(cust[1:]) - 1][5] = opened
-                device_of[cust] = rng.choice(ring_devices)
+                if style == "rented":
+                    rented_customers.add(cust)       # keeps its age, KYC and phone
+                else:
+                    opened = activity_start - timedelta(days=rng.randint(2, 25), seconds=rng.randrange(86400))
+                    row[4] = opened
+                    acct_opened[acct] = opened
+                    ds.customers[int(cust[1:]) - 1][3] = 1          # thin KYC
+                    ds.customers[int(cust[1:]) - 1][5] = opened
+                    device_of[cust] = rng.choice(ring_devices)
                 layers[layer].append(acct)
 
         victims = []
@@ -158,11 +166,73 @@ def generate(seed: int = 42, n_customers: int = 10_000, n_txns: int = 200_000, n
                 l1 = rng.choice(layers[1])
                 add_txn(v, l1, amount, rng.choice(["promptpay", "transfer"]), t,
                         device_of[acct_owner[v]], True, r)
-                _layer_out(rng, add_txn, l1, amount, t, layers, device_of, acct_owner, cashout, r, depth=1)
+                _layer_out(rng, add_txn, l1, amount, t, layers, device_of, acct_owner, cashout, r, depth=1, pace=pace)
                 t += timedelta(minutes=rng.randint(10, 90))
 
-        ds.rings.append({"ring": r, "layers": {k: v for k, v in layers.items()}, "victims": victims,
-                         "activity_start": activity_start.isoformat()})
+        ds.rings.append({"ring": r, "style": style, "pace": pace, "layers": {k: v for k, v in layers.items()},
+                         "victims": victims, "activity_start": activity_start.isoformat()})
+
+    # ------------------------------------------------------------ legitimate look-alikes
+    # Real users whose flows resemble mules, so the detector has to earn its precision.
+    legit = [a for a in pool if a not in victims_used]
+    everyday = [a for a in personal if acct_owner[a] not in mule_customers]  # their friends / buyers
+    days_all = [(START + timedelta(days=d)).date() for d in range(DAYS)]
+    venues = merchants[CASHOUT_MERCHANTS:]
+
+    # 1. Group collectors: friends chip in for a trip / party / condo fee, the organiser pays it
+    #    all out minutes later (fan-in + pass-through, but one payee and no layering).
+    for acct in legit[:60]:
+        cust = acct_owner[acct]
+        for _ in range(rng.randint(1, 3)):
+            t = _ts_on_day(rng, rng.choice(days_all))
+            total = 0
+            for friend in rng.sample(everyday, rng.randint(5, 14)):
+                if friend == acct:
+                    continue
+                share = _lognormal_satang(rng, 900, 0.5, 100, 6000)
+                t += timedelta(minutes=rng.randint(1, 15))
+                add_txn(friend, acct, share, "promptpay", t, device_of[acct_owner[friend]])
+                total += share
+            payee = rng.choice(venues) if rng.random() < 0.6 else rng.choice(everyday)
+            out = int(total * rng.uniform(0.92, 1.0))
+            for part in _split(rng, out, rng.randint(1, 2)):
+                t += timedelta(minutes=rng.randint(3, 40))
+                add_txn(acct, payee, part, "qr" if payee in venues else "transfer", t, device_of[cust])
+
+    # 2. New online sellers: a fresh wallet paid by many strangers, swept to the owner's own bank
+    #    account every evening (new account + strangers + high out/in, but no layering).
+    for acct in legit[60:100]:
+        cust = acct_owner[acct]
+        opened = START + timedelta(days=rng.randint(0, 18), seconds=rng.randrange(86400))
+        account_row[acct][4] = acct_opened[acct] = opened
+        if rng.random() < 0.5:
+            ds.customers[int(cust[1:]) - 1][3] = 1
+        bank = new_account(cust, "bank", opened)
+        account_row[bank] = ds.accounts[-1]
+        day = opened.date() + timedelta(days=1)
+        while day < END.date():
+            if rng.random() < 0.6:
+                takings = 0
+                for buyer in rng.sample(everyday, rng.randint(3, 12)):
+                    amount = _lognormal_satang(rng, 450, 0.8, 50, 9000)
+                    add_txn(buyer, acct, amount, "promptpay", _ts_on_day(rng, day), device_of[acct_owner[buyer]])
+                    takings += amount
+                sweep = datetime(day.year, day.month, day.day, 21, tzinfo=BKK) + timedelta(minutes=rng.randrange(120))
+                add_txn(acct, bank, int(takings * rng.uniform(0.9, 1.0)), "transfer", sweep, device_of[cust])
+            day += timedelta(days=1)
+
+    # 3. Shared devices: families on one phone, and phone-shop agents who set up many wallets.
+    family_heads = legit[100:160]
+    rest = legit[160:]
+    for head in family_heads:
+        for member in rest[:rng.randint(1, 4)]:
+            device_of[acct_owner[member]] = device_of[acct_owner[head]]
+        rest = rest[4:]
+    for _ in range(8):
+        agent_device = f"D{rng.getrandbits(40):010x}"
+        for member in rest[:rng.randint(6, 12)]:
+            device_of[acct_owner[member]] = agent_device
+        rest = rest[12:]
 
     # ------------------------------------------------------------ normal traffic
     normal_senders = [a for a in personal if acct_owner[a] not in mule_customers]
@@ -175,7 +245,7 @@ def generate(seed: int = 42, n_customers: int = 10_000, n_txns: int = 200_000, n
     # Mules keep a little ordinary-looking activity so they are not trivially separable.
     for cust in sorted(mule_customers):
         acct = wallet_of[cust]
-        for _ in range(rng.randint(2, 6)):
+        for _ in range(rng.randint(15, 40) if cust in rented_customers else rng.randint(2, 6)):
             day = rng.choice(days)
             ts = _ts_on_day(rng, day)
             if ts > acct_opened[acct]:
@@ -201,7 +271,7 @@ def generate(seed: int = 42, n_customers: int = 10_000, n_txns: int = 200_000, n
             channel = "qr" if roll < 0.9 else "promptpay"
             add_txn(src, dst, _lognormal_satang(rng, 250, 0.9, 10, 20_000), channel, ts, dev)
 
-    txns = [t for t in txns if START <= t[6] < END]
+    txns = [t for t in txns if START <= t[6] < END and t[6] >= acct_opened[t[1]] and t[6] >= acct_opened[t[2]]]
     txns.sort(key=lambda t: t[6])
     prefixes = {"promptpay": "PP", "transfer": "TR", "qr": "QR"}
     for i, t in enumerate(txns, 1):
@@ -227,20 +297,20 @@ def _watchlist(rng: random.Random, ds: Dataset) -> None:
         ds.watchlist.append((f"{fen} {len_}", f"{fth} {lth}", "synthetic_sanctions", "Decoy entry for demo"))
 
 
-def _layer_out(rng, add_txn, src, amount, t, layers, device_of, acct_owner, cashout, ring, depth) -> None:
-    """Forward most of the money one layer down within minutes (layer 3 cashes out partially)."""
+def _layer_out(rng, add_txn, src, amount, t, layers, device_of, acct_owner, cashout, ring, depth, pace=1) -> None:
+    """Forward most of the money one layer down within minutes × pace (layer 3 cashes out partially)."""
     if depth == 3:
         out = int(amount * rng.uniform(0.4, 0.7))
         for part in _split(rng, out, rng.randint(1, 3)):
-            t += timedelta(minutes=rng.randint(10, 120))
+            t += timedelta(minutes=rng.randint(10, 120) * pace)
             add_txn(src, rng.choice(cashout), part, "qr", t, device_of[acct_owner[src]], True, ring)
         return
     out = int(amount * rng.uniform(0.90, 0.98))
     for part in _split(rng, out, rng.randint(1, 3)):
         dst = rng.choice(layers[depth + 1])
-        t2 = t + timedelta(minutes=rng.randint(2, 15 if depth == 1 else 20), seconds=rng.randrange(60))
+        t2 = t + timedelta(minutes=rng.randint(2, 15 if depth == 1 else 20) * pace, seconds=rng.randrange(60))
         add_txn(src, dst, part, rng.choice(["promptpay", "transfer"]), t2, device_of[acct_owner[src]], True, ring)
-        _layer_out(rng, add_txn, dst, part, t2, layers, device_of, acct_owner, cashout, ring, depth + 1)
+        _layer_out(rng, add_txn, dst, part, t2, layers, device_of, acct_owner, cashout, ring, depth + 1, pace)
 
 
 def _split(rng: random.Random, total: int, n: int) -> list[int]:
