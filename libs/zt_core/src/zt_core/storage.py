@@ -41,3 +41,14 @@ def fetch(artifact_key: str, cache_dir: Path | None = None) -> Path:
             _client().download_file(os.environ["S3_BUCKET"], ref, str(dest))
         return dest
     raise ValueError(f"unsupported artifact {artifact_key}")
+
+
+def put(key: str, data: bytes) -> str:
+    """Store a raw file (e.g. an uploaded settlement CSV); returns its artifact key."""
+    if s3_enabled():
+        _client().put_object(Bucket=os.environ["S3_BUCKET"], Key=key, Body=data)
+        return f"s3:{key}"
+    path = model_root() / "models" / "raw" / key
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(data)
+    return f"local:models/raw/{key}"

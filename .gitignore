@@ -15,3 +15,4 @@ supabase/.branches/
 .DS_Store
 models/runs/
 models/cache/
+models/raw/

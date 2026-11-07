@@ -104,6 +104,7 @@ def generate(seed: int = 42, n_customers: int = 10_000, n_txns: int = 200_000, n
         cust = acct_owner[m]
         ds.customers[int(cust[1:]) - 1][1:3] = ["ร้านทอง เยาวราช", "Yaowarat Gold Shop"] if m == cashout[0] \
             else ["ร้านมือถือ ประตูน้ำ", "Pratunam Mobile Shop"]
+        cust_name[cust] = ds.customers[int(cust[1:]) - 1][2]  # settlement files use the trading name
 
     account_row = {row[0]: row for row in ds.accounts}
     txns: list[list] = []

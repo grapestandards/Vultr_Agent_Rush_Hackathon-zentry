@@ -1,4 +1,5 @@
-"""Zentry worker: outbox relay, scoring consumer, investigator, training runner (select with WORKER_TASKS)."""
+"""Zentry worker: outbox relay, scoring, investigator, training runner, reconciliation, follow-ups
+(select with WORKER_TASKS)."""
 
 import asyncio
 import logging
@@ -8,7 +9,9 @@ from pathlib import Path
 from zt_core.events import NatsEventBus
 from zt_core.settings import env
 
+from .followups import run_followups
 from .investigate_jobs import run_investigator
+from .recon_jobs import run_recon_jobs
 from .relay import run_relay
 from .scorer import run_scorer
 from .train_jobs import run_trainer_jobs
@@ -17,7 +20,7 @@ log = logging.getLogger("zt_worker")
 
 
 async def run() -> None:
-    tasks = {t.strip() for t in os.environ.get("WORKER_TASKS", "relay,scorer,investigator,trainer").split(",") if t.strip()}
+    tasks = {t.strip() for t in os.environ.get("WORKER_TASKS", "relay,scorer,investigator,trainer,recon,followups").split(",") if t.strip()}
     bus = await NatsEventBus.connect(env("NATS_URL"), "zt-worker", os.environ.get("NATS_CREDS"))
     database_url = env("DATABASE_URL")
     jobs = []
@@ -29,6 +32,10 @@ async def run() -> None:
         jobs.append(run_investigator(bus, database_url))
     if "trainer" in tasks:
         jobs.append(run_trainer_jobs(bus, database_url))
+    if "recon" in tasks:
+        jobs.append(run_recon_jobs(bus, database_url))
+    if "followups" in tasks:
+        jobs.append(run_followups(bus, database_url))
     log.info("worker started: %s", sorted(tasks))
     try:
         await asyncio.gather(*jobs)

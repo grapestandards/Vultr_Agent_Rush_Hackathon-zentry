@@ -4,6 +4,7 @@ Every decision is audited with before/after state and becomes the case's label f
 from __future__ import annotations
 
 import json
+import logging
 import time
 from typing import Literal
 
@@ -14,7 +15,9 @@ from pydantic import BaseModel, Field
 from zt_core.settings import env
 
 from .auth import User, current_user, require
+from .followups import open_victim_refunds
 
+log = logging.getLogger("zt_api.cases")
 router = APIRouter(prefix="/cases", tags=["cases"])
 
 Decision = Literal["close_false_positive", "close_fraud", "escalate", "freeze"]
@@ -89,4 +92,9 @@ def decide(case_id: str, body: DecisionIn, user: User = Depends(current_user)) -
                      (user.actor, f"decision:{body.decision}", f"case:{case_id}",
                       json.dumps({"status": before[0], "disposition": before[1], "str_approved": before[3] is not None}),
                       json.dumps(after)))
+    if disposition == "fraud":  # W1 step 7: money still held in the network → refund follow-ups
+        try:
+            after["refund_follow_ups"] = open_victim_refunds(case_id, user.actor)
+        except Exception:  # noqa: BLE001 — the decision stands even if tracing fails
+            log.exception("could not open victim refund follow-ups for %s", case_id)
     return {"case_id": case_id, **after}

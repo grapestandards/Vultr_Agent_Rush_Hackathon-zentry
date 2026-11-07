@@ -23,8 +23,8 @@
 		{ href: '/alerts', label: 'Alert Queue', icon: BellRing, ready: true },
 		{ href: '/cases', label: 'Cases', icon: FolderSearch, ready: true },
 		{ href: '/graph', label: 'Graph Explorer', icon: Network, ready: true },
-		{ href: '/recon', label: 'Reconciliation', icon: ArrowRightLeft, ready: false },
-		{ href: '/follow-ups', label: 'Follow-ups', icon: Receipt, ready: false },
+		{ href: '/recon', label: 'Reconciliation', icon: ArrowRightLeft, ready: true },
+		{ href: '/follow-ups', label: 'Follow-ups', icon: Receipt, ready: true },
 		{ href: '/tuning', label: 'Model Tuning', icon: BrainCircuit, ready: true },
 		{ href: '/audit', label: 'Audit Log', icon: ScrollText, ready: false }
 	];
