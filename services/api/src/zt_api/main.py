@@ -1,4 +1,4 @@
-"""Zentry API: health, transaction ingest, case investigation and decisions."""
+"""Zentry API: health, transaction ingest, case investigation and decisions, graph explorer data."""
 
 from contextlib import asynccontextmanager
 from typing import Literal
@@ -13,6 +13,7 @@ from zt_core.ingest import ingest_transactions
 from zt_core.settings import env
 
 from .cases import router as cases_router
+from .graph import router as graph_router
 
 
 @asynccontextmanager
@@ -24,6 +25,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Zentry API", version="0.1.0", lifespan=lifespan)
 app.include_router(cases_router)
+app.include_router(graph_router)
 
 
 @app.get("/healthz")

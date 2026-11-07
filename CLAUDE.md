@@ -30,7 +30,7 @@ supabase/{config.toml,migrations}  infra/{docker-compose.yml,coolify,vultr}  scr
   txn ids are deterministic and would hit the 2h dedup window)
 - `make replay` — push all of sim_feed through ingest → outbox → NATS → scorer (~4 min)
 - `make demo-stream RATE=15` — live-speed replay for the demo
-- `make check-m1` / `check-m2` / `check-m3` — acceptance checks (m2/m3 need `make reset && make replay` first)
+- `make check-m1` … `check-m4` — acceptance checks (m2–m4 need `make reset && make replay` first)
 - Local runtime is Colima (`colima start`); Supabase CLI via `npx supabase`.
 
 ## Rules (non-negotiable)

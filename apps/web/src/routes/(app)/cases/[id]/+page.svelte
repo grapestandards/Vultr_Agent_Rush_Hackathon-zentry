@@ -125,7 +125,7 @@
 			<div class="flex items-center justify-between">
 				<h2 class="font-semibold">Accounts</h2>
 				{#if data.alerted[0]}
-					<a href="/graph?account={data.alerted[0]}&case={k.id}" class="flex items-center gap-1 text-xs font-medium text-accent hover:underline">
+					<a href="/graph?case={k.id}" class="flex items-center gap-1 text-xs font-medium text-accent hover:underline">
 						<Network size={14} /> Open in Graph Explorer
 					</a>
 				{/if}
@@ -221,7 +221,7 @@
 				</button>
 			</form>
 			{#if data.alerted[0]}
-				<a href="/graph?account={data.alerted[0]}&case={k.id}&trace=1" class="rounded-full bg-ink px-3 py-1.5 text-xs font-medium text-white">Trace from victim</a>
+				<a href="/graph?case={k.id}&trace=1" class="rounded-full bg-ink px-3 py-1.5 text-xs font-medium text-white">Trace from victim</a>
 			{/if}
 			<a href="#str" class="rounded-full bg-ink px-3 py-1.5 text-xs font-medium text-white">Draft STR</a>
 		</div>

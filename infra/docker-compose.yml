@@ -10,12 +10,14 @@ x-env: &supabase-env
 services:
   nats:
     image: nats:2.11-alpine
+    restart: unless-stopped
     command: ["-js", "-sd", "/data", "-m", "8222"]
     ports: ["4222:4222", "8222:8222"]
     volumes: [nats-data:/data]
 
   api:
     build: { context: .., dockerfile: infra/python.Dockerfile, args: { PACKAGE: zt-api } }
+    restart: unless-stopped
     command: ["uvicorn", "zt_api.main:app", "--host", "0.0.0.0", "--port", "8000"]
     env_file: ../.env
     environment: *supabase-env
@@ -24,6 +26,7 @@ services:
 
   worker:
     build: { context: .., dockerfile: infra/python.Dockerfile, args: { PACKAGE: zt-worker } }
+    restart: unless-stopped
     command: ["python", "-m", "zt_worker.main"]
     env_file: ../.env
     environment:
@@ -33,6 +36,7 @@ services:
     depends_on: [nats]
 
   web:
+    restart: unless-stopped
     build: { context: ../apps/web, args: { ORIGIN: "http://localhost:3000" } }
     env_file: ../.env
     environment:

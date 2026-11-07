@@ -2,7 +2,7 @@ SHELL := /bin/bash
 COMPOSE := $(shell docker compose version >/dev/null 2>&1 && echo "docker compose" || echo docker-compose) -f infra/docker-compose.yml
 RUN := set -a && source .env && set +a && uv run
 
-.PHONY: up down env db-reset seed check-m1 check-m2 check-m3 train-baseline reset replay demo-stream test logs web-dev
+.PHONY: up down env db-reset seed check-m1 check-m2 check-m3 check-m4 train-baseline reset replay demo-stream test logs web-dev
 
 up: ## start Supabase + nats/api/worker/web
 	npx supabase start
@@ -27,6 +27,9 @@ check-m1:
 
 check-m3:
 	$(RUN) python scripts/check_m3.py
+
+check-m4:
+	$(RUN) python scripts/check_m4.py
 
 check-m2:
 	$(RUN) python scripts/check_m2.py

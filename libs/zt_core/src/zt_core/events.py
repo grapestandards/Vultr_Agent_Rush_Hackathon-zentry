@@ -3,6 +3,7 @@ Vultr Managed Kafka without touching business logic."""
 
 from __future__ import annotations
 
+import asyncio
 import json
 import zlib
 from collections.abc import AsyncIterator
@@ -90,7 +91,7 @@ class NatsEventBus:
         while True:
             try:
                 raw = await sub.fetch(batch, timeout=1)
-            except nats.errors.TimeoutError:
+            except (nats.errors.TimeoutError, asyncio.TimeoutError):  # idle: nats-py raises either
                 continue
             yield [
                 Message(m.subject, json.loads(m.data), (m.headers or {}).get("Nats-Msg-Id"),
