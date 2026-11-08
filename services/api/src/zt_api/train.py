@@ -43,7 +43,9 @@ class TrainIn(BaseModel):
     num_leaves: int | None = Field(default=None, ge=4, le=512)
     min_data_in_leaf: int | None = Field(default=None, ge=1, le=2000)
     scale_pos_weight: float | None = Field(default=None, gt=0, le=200)
-    trials: int = Field(default=0, ge=0, le=40, description="Optuna trials; 0 = use the given params")
+    # each trial is a full 300-round fit (up to ~30 s on the 4-vCPU VM); 15 keeps a run well inside the
+    # worker's 30-minute limit
+    trials: int = Field(default=0, ge=0, le=15, description="Optuna trials; 0 = use the given params")
     use_analyst_labels: bool = True
     note: str = Field(default="", max_length=500)
 
@@ -59,11 +61,18 @@ def train_config(user: User = Depends(current_user)) -> dict:
 @router.post("/train", status_code=202)
 async def start_training(body: TrainIn, request: Request, user: User = Depends(current_user)) -> dict:
     require(user, *OWNERS)
+    body.features = list(dict.fromkeys(body.features))  # LightGBM rejects repeated feature names
     unknown = set(body.features) - set(FEATURES)
     if unknown or len(body.features) < 3:
         raise HTTPException(422, f"choose at least 3 known features (unknown: {sorted(unknown)})")
     how = runner()
     with _connect() as conn:
+        # a run the worker lost (restarted mid-run) would otherwise block training forever; the worker
+        # kills its own runs at 30 minutes, so anything older is dead
+        conn.execute("""update public.train_runs set status = 'failed', finished_at = now(),
+                               error = coalesce(error, 'abandoned: no progress within 35 minutes')
+                        where status in ('queued', 'provisioning', 'running')
+                          and created_at < now() - interval '35 minutes'""")
         busy = conn.execute("""select count(*) n from public.train_runs
                                where status in ('queued', 'provisioning', 'running')""").fetchone()["n"]
         if busy:

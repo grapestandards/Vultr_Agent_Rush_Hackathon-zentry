@@ -37,7 +37,12 @@ export const actions: Actions = {
 				use_analyst_labels: f.get('use_analyst_labels') === 'on'
 			})
 		});
-		if (!r.ok) return fail(r.status, { message: typeof r.body.detail === 'string' ? r.body.detail : 'Could not start training' });
+		if (!r.ok) {
+			// FastAPI validation errors arrive as a list of {loc, msg}
+			const d = r.body.detail;
+			const message = typeof d === 'string' ? d : Array.isArray(d) ? d.map((e) => `${e.loc?.at(-1)}: ${e.msg}`).join('; ') : 'Could not start training';
+			return fail(r.status, { message });
+		}
 		return { message: 'Training started — follow the live log.' };
 	},
 	shadow: async ({ locals, request }) => {

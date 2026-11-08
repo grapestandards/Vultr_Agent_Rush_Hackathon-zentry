@@ -34,6 +34,14 @@ REPO = os.environ.get("ZENTRY_GIT_URL", "https://github.com/grapestandards/Vultr
 async def run_trainer_jobs(bus: EventBus, database_url: str) -> None:
     if os.environ.get("VULTR_API_KEY"):
         asyncio.create_task(_watchdog(database_url))
+    # Local runs are child processes of this worker, so any still marked running died with the last
+    # one. Their jobs.train messages were acked up front and will not come back.
+    async with await psycopg.AsyncConnection.connect(database_url) as conn:
+        cur = await conn.execute("""update public.train_runs set status = 'failed', finished_at = now(),
+                                           error = coalesce(error, 'worker restarted during the run; start it again')
+                                    where runner = 'local' and status = 'running'""")
+        if cur.rowcount:
+            log.warning("marked %d interrupted local training run(s) failed", cur.rowcount)
     async for batch in bus.consume("jobs.train", durable="trainer", batch=1):
         for m in batch:
             await m.ack()  # runs take minutes; a crash marks the run failed instead of redelivering

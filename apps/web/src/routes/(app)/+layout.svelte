@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { ROLE_LABEL } from '#lib/roles.ts';
+	import { ROLE_LABEL, canOpen, sectionRoles } from '#lib/roles.ts';
 	import {
 		ArrowRightLeft,
 		BellRing,
 		BrainCircuit,
 		FolderSearch,
 		LayoutDashboard,
+		Lock,
 		LogOut,
 		Network,
 		Receipt,
@@ -28,6 +29,11 @@
 		{ href: '/tuning', label: 'Model Tuning', icon: BrainCircuit, ready: true },
 		{ href: '/audit', label: 'Audit Log', icon: ScrollText, ready: false }
 	];
+
+	// Sections a role cannot use would otherwise render as empty pages (RLS returns no rows).
+	const allowed = $derived(canOpen(data.role, page.url.pathname));
+	const needs = $derived((sectionRoles(page.url.pathname) ?? []).map((r) => ROLE_LABEL[r]));
+	const rolesFor = (href: string) => (sectionRoles(href) ?? []).map((r) => ROLE_LABEL[r]).join(', ');
 </script>
 
 <div class="flex h-dvh gap-4 overflow-hidden p-3 sm:p-5">
@@ -35,15 +41,20 @@
 		<span class="mb-4 grid size-10 place-items-center rounded-full bg-ink text-white"><ShieldCheck size={18} /></span>
 		{#each nav as item (item.href)}
 			{@const active = item.href === '/' ? page.url.pathname === '/' : page.url.pathname.startsWith(item.href)}
+			{@const open = canOpen(data.role, item.href)}
 			<a
 				href={item.ready ? item.href : undefined}
 				aria-disabled={!item.ready}
-				title={item.label}
-				class="grid size-10 place-items-center rounded-full transition
+				title={open ? item.label : `${item.label}: ${rolesFor(item.href)} only`}
+				class="relative grid size-10 place-items-center rounded-full transition
 					{active ? 'bg-white text-ink shadow-card' : 'text-ink-muted hover:bg-white/60'}
-					{item.ready ? '' : 'pointer-events-none opacity-40'}"
+					{item.ready ? '' : 'pointer-events-none opacity-40'}
+					{open ? '' : 'opacity-40'}"
 			>
 				<item.icon size={18} />
+				{#if !open && item.ready}
+					<Lock size={10} class="absolute right-1 bottom-1" />
+				{/if}
 			</a>
 		{/each}
 		<form method="POST" action="/logout" class="mt-auto">
@@ -66,7 +77,23 @@
 			</div>
 		</header>
 		<main class="min-h-0 flex-1 overflow-y-auto px-5 pb-6 sm:px-8">
-			{@render children()}
+			{#if allowed}
+				{@render children()}
+			{:else}
+				<div class="grid h-full place-items-center">
+					<div class="max-w-md rounded-3xl bg-white p-8 text-center shadow-card">
+						<span class="mx-auto grid size-12 place-items-center rounded-full bg-mist text-ink-muted"><Lock size={20} /></span>
+						<h2 class="mt-4 text-xl font-semibold">Not part of the {data.role ? ROLE_LABEL[data.role] : 'current'} role</h2>
+						<p class="mt-2 text-sm text-ink-muted">
+							This area is for {needs.join(', ')}. Each role sees only the data it needs; sign in as one of those roles
+							to try it.
+						</p>
+						<form method="POST" action="/logout" class="mt-5">
+							<button class="rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-white">Switch role</button>
+						</form>
+					</div>
+				</div>
+			{/if}
 		</main>
 	</div>
 </div>

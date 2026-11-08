@@ -11,6 +11,7 @@ import httpx
 import psycopg
 
 from zt_core import jobtoken
+from zt_core.features import FEATURES
 from zt_worker import train_jobs
 
 API = "http://127.0.0.1:8000"
@@ -57,10 +58,26 @@ def main():
     check(r.status_code == 401, "anonymous cannot start training", f"HTTP {r.status_code}")
     r = api.post("/train", headers=owner, json={"features": ["side_out", "bogus"], "trials": 0})
     check(r.status_code == 422, "unknown features rejected", f"HTTP {r.status_code}")
+    r = api.post("/train", headers=owner, json={"features": ["side_out", "side_out", "hour", "hour"], "trials": 0})
+    check(r.status_code == 422, "repeated features count once (2 distinct < 3)", f"HTTP {r.status_code}")
+    r = api.post("/train", headers=owner, json={"trials": 16})
+    check(r.status_code == 422, "more than 15 Optuna trials rejected", f"HTTP {r.status_code}")
 
-    r = api.post("/train", headers=owner, json={"trials": 2})
+    # a run the worker lost long ago must not block training forever
+    stale = conn.execute("""insert into public.train_runs (requested_by, params_json, runner, status, created_at)
+                            select id, '{}', 'local', 'running', now() - interval '40 minutes' from auth.users
+                            where email = 'compliance_manager@demo.zentry.local' returning id::text""").fetchone()[0]
+    conn.commit()
+
+    # every tuning option set, not just the defaults
+    chosen = [f for f in FEATURES if f not in ("hour", "kyc_level")]
+    r = api.post("/train", headers=owner, json={"features": chosen + ["side_out"], "learning_rate": 0.08,
+                                                "num_leaves": 40, "scale_pos_weight": 15, "trials": 2,
+                                                "use_analyst_labels": True, "note": "m5 check"})
     run_id = r.json().get("id")
-    check(r.status_code == 202 and run_id, "compliance manager starts a run", run_id)
+    check(r.status_code == 202 and run_id, "compliance manager starts a run with every option set", run_id)
+    st = conn.execute("select status, error from public.train_runs where id = %s", (stale,)).fetchone()
+    check(st[0] == "failed" and "abandoned" in (st[1] or ""), "an abandoned run is failed instead of blocking", st[0])
     r2 = api.post("/train", headers=owner, json={"trials": 0})
     check(r2.status_code == 409, "only one run at a time", f"HTTP {r2.status_code}")
 
@@ -96,6 +113,9 @@ def main():
     check(card["champion"] and card["champion"]["id"] == original and len(card["curve"]) == len(card["champion"]["curve"]) == 19,
           "champion and challenger evaluated on the same holdout", f"holdout seed {card['holdout']['seed']}, "
           f"PR-AUC {card['champion']['pr_auc']} vs {mv[4]['pr_auc']}")
+    check(card["features"] == chosen, "trained on exactly the chosen features", f"{len(card['features'])} features")
+    val = next((ln for ln in log_tail.splitlines() if "validation:" in ln), "")
+    check(val and not val.rstrip().endswith(" 0 fraud"), "validation split holds fraud rows", val.split("validation:")[-1].strip())
     r = api.post(f"/train/jobs/{run_id}/log", json={"lines": ["late"]},
                  headers={"Authorization": f"Bearer {jobtoken.sign(run_id)}"})
     check(r.status_code == 409, "finished runs accept no more writes", f"HTTP {r.status_code}")

@@ -110,7 +110,7 @@
 						<input name="scale_pos_weight" type="number" step="0.5" min="0.5" max="200" placeholder="20" class="w-full rounded-xl bg-mist px-3 py-2" /></label>
 				</div>
 				<label class="flex items-center justify-between gap-3 text-xs"><span class="text-ink-muted">Optuna search trials (0 = use the values above)</span>
-					<input name="trials" type="number" min="0" max="40" value="6" class="w-16 rounded-xl bg-mist px-3 py-2 text-right" /></label>
+					<input name="trials" type="number" min="0" max="15" value="6" class="w-16 rounded-xl bg-mist px-3 py-2 text-right" /></label>
 				<label class="flex items-center gap-2 text-xs"><input type="checkbox" name="use_analyst_labels" checked class="accent-[#05060b]" />
 					Add the live month labelled by analyst decisions</label>
 				<button disabled={!canTune || active} class="flex w-full items-center justify-center gap-2 rounded-full bg-ink py-2.5 text-sm font-medium text-white disabled:opacity-40">
