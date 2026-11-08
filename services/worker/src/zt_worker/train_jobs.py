@@ -85,7 +85,7 @@ async def _status(database_url: str, run_id: str) -> str:
 
 # ------------------------------------------------------------------ local
 async def _run_local(database_url: str, run_id: str) -> None:
-    await _note(database_url, run_id, "no Vultr runner configured: training in a local process")
+    await _note(database_url, run_id, "training on the app server in an isolated process (no database credentials)")
     env = os.environ | {"TRAIN_RUN_ID": run_id, "TRAIN_JOB_TOKEN": jobtoken.sign(run_id),
                         "ZENTRY_API_URL": os.environ.get("ZENTRY_API_URL", "http://127.0.0.1:8000")}
     for secret in ("DATABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "VULTR_API_KEY", "S3_SECRET_KEY", "S3_ACCESS_KEY"):

@@ -62,10 +62,11 @@ class Job:
         params = spec["params"]
         features = [f for f in params.get("features") or FEATURES if f in FEATURES]
         lgb_params = PARAMS | {k: params[k] for k in TUNABLE if params.get(k) is not None}
-        self.log(f"run {self.run_id} on {spec['runner']} · {len(features)}/{len(FEATURES)} features · "
+        where = "a Vultr Training VM" if spec["runner"] == "vultr" else "the app server"
+        self.log(f"run {self.run_id} on {where} · {len(features)}/{len(FEATURES)} features · "
                  f"optuna trials={params.get('trials', 0)}")
 
-        self.log(f"history month (seed {HISTORY_SEED}): generating + streaming features…")
+        self.log("history month: building features…")
         X, y, _ = build_xy(generate(seed=HISTORY_SEED))
         self.log(f"  {len(y):,} rows, {int(y.sum()):,} fraud")
 
@@ -85,7 +86,7 @@ class Job:
         booster = fit(X, y, lgb_params, features, rounds=int(params.get("rounds", 400)), valid=valid)
         self.log(f"  best iteration {booster.best_iteration}")
 
-        self.log(f"holdout month (seed {HOLDOUT_SEED}): generating + streaming features…")
+        self.log("holdout month: building features…")
         Xh, yh, keys = build_xy(generate(seed=HOLDOUT_SEED))
         p_new = booster.predict(Xh[:, [FEATURES.index(f) for f in features]], num_iteration=booster.best_iteration)
         challenger = evaluate(p_new, yh, keys, DAYS)

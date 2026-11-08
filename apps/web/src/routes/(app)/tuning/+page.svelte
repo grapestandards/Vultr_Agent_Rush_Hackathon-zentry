@@ -72,7 +72,7 @@
 		{#if data.config}
 			<span class="flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-medium shadow-card">
 				{#if data.config.runner === 'vultr'}<Cloud size={14} class="text-accent" /> Runs on a Vultr Training VM ({data.config.plan}, {data.config.region})
-				{:else}<Cpu size={14} class="text-accent" /> Runs locally (set TRAIN_RUNNER=vultr for a Training VM){/if}
+				{:else}<Cpu size={14} class="text-accent" /> Trains on the app server, in an isolated job{/if}
 			</span>
 		{/if}
 	</div>
@@ -148,7 +148,7 @@
 						{/if}
 					</div>
 					<p class="mt-1 text-xs text-ink-muted">
-						Same holdout for both: unseen synthetic month (seed {card.holdout?.seed}), {card.holdout?.rows.toLocaleString()} scored rows,
+						Same held-out month for both, never seen in training: {card.holdout?.rows.toLocaleString()} scored rows,
 						{card.holdout?.fraud_rows.toLocaleString()} fraud. Trained on {card.training?.rows.toLocaleString()} rows in {card.seconds?.toFixed(0)}s.
 					</p>
 
