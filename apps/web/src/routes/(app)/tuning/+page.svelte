@@ -126,7 +126,7 @@
 						<span class="rounded-full px-2.5 py-1 text-xs font-semibold capitalize {RUN_TONE[run.status]}" data-testid="run-status">{run.status}</span>
 					</div>
 					<p class="mt-1 text-xs text-ink-muted">
-						{run.runner === 'vultr' ? 'Vultr Training VM' : 'local process'}{run.vultr_instance_id ? ` · instance ${run.vultr_instance_id}` : ''} · {when(run.created_at)}
+						{run.runner === 'vultr' ? 'Vultr Training VM' : 'app server'}{run.vultr_instance_id ? ` · instance ${run.vultr_instance_id}` : ''} · {when(run.created_at)}
 					</p>
 					<pre bind:this={logBox} class="mt-3 max-h-72 overflow-auto rounded-2xl bg-ink p-3 font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-white/85">{run.log_tail ?? 'waiting for the job…'}</pre>
 					{#if run.error}<p class="mt-2 text-xs text-alert">{run.error.split('\n').filter(Boolean).at(-1)}</p>{/if}
