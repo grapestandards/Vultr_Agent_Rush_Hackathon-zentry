@@ -17,3 +17,4 @@ models/runs/
 models/cache/
 models/raw/
 supabase/signing_keys.json
+docs/demo/
