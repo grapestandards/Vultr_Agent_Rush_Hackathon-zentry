@@ -1,5 +1,9 @@
 # Vultr infrastructure
 
+The live demo runs on a single Cloud Compute VM, deployed with [`deploy.sh`](deploy.sh)
+(Caddy for HTTPS, Supabase, Docker Compose; only 80/443 public). The Terraform below is the
+larger multi-VM layout for production.
+
 Terraform in `terraform/` creates the fixed part of Zentry on Vultr (Singapore):
 
 | Resource | Purpose |

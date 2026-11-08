@@ -109,7 +109,7 @@
 		recolor();
 	}
 
-	/** Green = money into the focus accounts, red = money out of them (Arkham-style flow colours). */
+	/** Green = money into the focus accounts, red = money out of them. */
 	function recolor() {
 		if (!cy) return;
 		cy.batch(() => {

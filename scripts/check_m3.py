@@ -143,7 +143,7 @@ def decisions(conn):
                                 and id <> %s and agent_report is not null limit 1""", (case_id,)).fetchone()
     r = httpx.post(f"{API}/cases/{other}/investigate", headers={"Authorization": f"Bearer {analyst}"})
     ok = False
-    for _ in range(40):
+    for _ in range(240):  # up to 2 min: an LLM investigation takes 20-45 s
         time.sleep(0.5)
         conn.rollback()
         if conn.execute("select investigated_at > %s from public.cases where id = %s", (ts, other)).fetchone()[0]:

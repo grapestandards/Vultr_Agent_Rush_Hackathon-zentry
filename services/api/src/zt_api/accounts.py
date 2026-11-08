@@ -1,4 +1,4 @@
-"""Account entity page (Arkham-style profile) and the audited PII reveal.
+"""Account entity page (profile, counterparties, flows) and the audited PII reveal.
 
 Names are masked everywhere ("Somying Sd****"); merchants keep their business name. The full name is
 returned only by POST /pii/reveal, with a reason, and every reveal is written to audit_log."""
